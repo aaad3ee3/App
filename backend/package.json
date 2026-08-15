@@ -18,6 +18,7 @@
     "migrate:make": "tsx node_modules/knex/bin/cli.js --knexfile knexfile.ts migrate:make",
     "seed:admin": "tsx src/scripts/seed-admin.ts",
     "check:libyaplay": "tsx src/scripts/check-libyaplay.ts",
+    "check:plus": "tsx src/scripts/check-plus.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

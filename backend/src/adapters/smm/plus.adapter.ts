@@ -1,23 +1,60 @@
-import type { SmmOrderStatusResult, SmmService, SmmSupplierAdapter } from "./smm-supplier.interface";
+import type { SmmOrderResult, SmmOrderStatusResult, SmmService, SmmSupplierAdapter } from "./smm-supplier.interface";
+import { createPlusClientFromEnv, type PlusClient } from "./plus.client";
 
 /**
- * FUTURE PHASE — placeholder implementation. No "Plus" panel API documentation was
- * available when this was written; every method throws until it's implemented against
- * the real API. The order/fulfillment module (future phase) will depend only on
- * `SmmSupplierAdapter`, so filling this in is a self-contained task.
+ * FUTURE PHASE — not wired into any route yet (no catalog/order module exists). The HTTP
+ * client and every method below are real and confirmed against Plus's actual API docs
+ * and live tester. See smm-supplier.interface.ts for the idempotency caveat on `addOrder`.
  */
 export class PlusAdapter implements SmmSupplierAdapter {
-  // TODO: constructor(config: { apiKey: string; baseUrl: string })
+  private _client?: PlusClient;
+
+  constructor(client?: PlusClient) {
+    if (client) this._client = client;
+  }
+
+  /** Lazy: constructing the adapter never throws for missing env vars, only actually calling it does. */
+  private get client(): PlusClient {
+    if (!this._client) {
+      this._client = createPlusClientFromEnv();
+    }
+    return this._client;
+  }
 
   async listServices(): Promise<SmmService[]> {
-    throw new Error("PlusAdapter.listServices: not implemented — pending Plus panel API docs");
+    const services = await this.client.getServices();
+    return services.map((s) => ({
+      supplierServiceId: String(s.serviceId),
+      name: s.name,
+      costPer1000: s.pricePer1000Usd,
+      currency: "USD",
+      minQuantity: s.min,
+      maxQuantity: s.max,
+    }));
   }
 
-  async addOrder(_input: { supplierServiceId: string; link: string; quantity: number; idempotencyKey: string }): Promise<{ supplierOrderId: string }> {
-    throw new Error("PlusAdapter.addOrder: not implemented — pending Plus panel API docs");
+  async addOrder(input: { supplierServiceId: string; link: string; quantity: number }): Promise<SmmOrderResult> {
+    const result = await this.client.addOrder({
+      serviceId: Number(input.supplierServiceId),
+      quantity: input.quantity,
+      link: input.link,
+    });
+    return {
+      supplierOrderId: result.smmOrderId,
+      orderNumber: String(result.orderNumber),
+      priceUsd: result.priceUsd,
+    };
   }
 
-  async getOrderStatus(_supplierOrderId: string): Promise<SmmOrderStatusResult> {
-    throw new Error("PlusAdapter.getOrderStatus: not implemented — pending Plus panel API docs");
+  async getOrderStatus(orderNumber: string): Promise<SmmOrderStatusResult> {
+    const result = await this.client.getOrderStatus(Number(orderNumber));
+    return {
+      orderNumber: String(result.orderNumber),
+      serviceName: result.serviceName,
+      quantity: result.quantity,
+      remains: result.remains,
+      status: result.status,
+      priceUsd: result.priceUsd,
+    };
   }
 }

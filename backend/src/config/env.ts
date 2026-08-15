@@ -42,6 +42,10 @@ const envSchema = z.object({
   LIBYA_PLAY_BASE_URL: z.string().default("https://api.libyaplay.com/portal"),
   LIBYA_PLAY_API_KEY: z.string().optional(),
   LIBYA_PLAY_EMAIL: z.string().email().optional(),
+
+  // Plus (SMM/growth supplier) — same "optional until wired into a route" reasoning.
+  PLUS_BASE_URL: z.string().default("https://hamadh.net/api/v2"),
+  PLUS_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
