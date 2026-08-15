@@ -1,0 +1,26 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    root __APP_DIR__/admin/dist;
+    index index.html;
+
+    client_max_body_size 2m;
+
+    # Reverse proxy to the backend. Path is passed through unchanged since the
+    # backend's own routes already live under /api/v1/... (see backend/src/app.ts).
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Admin dashboard SPA (React Router-style client-side routing).
+    location / {
+        try_files $uri /index.html;
+    }
+}
