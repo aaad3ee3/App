@@ -1,7 +1,12 @@
 import { db } from "../../db/knex";
 import { SMS_MATCH_STATUS, TOPUP_STATUS, WALLET_TX_REFERENCE_TYPES, WALLET_TX_TYPES } from "../../config/constants";
 import { HttpError } from "../../plugins/error-handler.plugin";
-import type { SmsMatchStatus, TopupStatus } from "../../db/types";
+import type { OrderStatus, SmsMatchStatus, TopupStatus } from "../../db/types";
+import { LibyaPlayAdapter } from "../../adapters/giftcards/libyaplay.adapter";
+import { PlusAdapter } from "../../adapters/smm/plus.adapter";
+import * as catalogRepo from "../catalog/catalog.repository";
+import * as catalogSyncService from "../catalog/catalog-sync.service";
+import * as ordersService from "../orders/orders.service";
 import * as smsRepo from "../sms/sms.repository";
 import * as topupsRepo from "../topups/topups.repository";
 import * as walletRepo from "../wallet/wallet.repository";
@@ -166,4 +171,60 @@ export async function getUserDetail(userId: string) {
   const row = await adminRepo.getUserDetail(userId);
   if (!row) throw new HttpError(404, "not_found", "User not found");
   return row;
+}
+
+// --- Catalog ---
+
+export async function syncCatalog() {
+  const [libyaPlay, plus] = await Promise.all([
+    catalogSyncService.syncLibyaPlay(new LibyaPlayAdapter()),
+    catalogSyncService.syncPlus(new PlusAdapter()),
+  ]);
+  return { libya_play: libyaPlay, plus };
+}
+
+export async function listCategoriesAdmin() {
+  return catalogRepo.listAllCategoriesAdmin();
+}
+
+export async function listProductsAdmin(categoryId?: string) {
+  return catalogRepo.listAllProductsAdmin(categoryId);
+}
+
+export async function setCategoryEnabled(adminId: string, categoryId: string, enabled: boolean) {
+  const updated = await catalogRepo.setCategoryEnabled(categoryId, enabled);
+  if (!updated) throw new HttpError(404, "not_found", "Category not found");
+  // Reuses the 'product' target_type — categories/products are close enough kin that a
+  // dedicated enum value isn't worth another migration for this.
+  await adminRepo.logAction({ adminUserId: adminId, action: "set_category_enabled", targetType: "product", targetId: categoryId, details: { enabled } });
+  return { ok: true };
+}
+
+export async function updateProductAdmin(
+  adminId: string,
+  productId: string,
+  fields: { sellPrice?: number; available?: boolean }
+) {
+  const updated = await catalogRepo.updateProductOverride(productId, fields);
+  if (!updated) throw new HttpError(404, "not_found", "Product not found");
+  await adminRepo.logAction({ adminUserId: adminId, action: "update_product", targetType: "product", targetId: productId, details: fields });
+  return { ok: true };
+}
+
+// --- Orders ---
+
+export async function listOrdersByStatus(status: OrderStatus, page: number, pageSize: number) {
+  return ordersService.adminListByStatus(status, page, pageSize);
+}
+
+export async function resolveAmbiguousOrderCompleted(adminId: string, orderId: string, note: string) {
+  const order = await ordersService.adminMarkAmbiguousAsCompleted(orderId, note);
+  await adminRepo.logAction({ adminUserId: adminId, action: "mark_order_completed", targetType: "order", targetId: orderId, details: { note } });
+  return order;
+}
+
+export async function refundOrderAdmin(adminId: string, orderId: string, note: string) {
+  const order = await ordersService.adminRefundOrder(orderId, note);
+  await adminRepo.logAction({ adminUserId: adminId, action: "refund_order", targetType: "order", targetId: orderId, details: { note } });
+  return order;
 }

@@ -94,8 +94,66 @@ export interface AdminActionRow {
   id: string;
   admin_user_id: string;
   action: string;
-  target_type: "sms_event" | "topup_request" | "wallet";
+  target_type: "sms_event" | "topup_request" | "wallet" | "order" | "product";
   target_id: string;
   details: unknown;
   created_at: Date;
+}
+
+export type ProductKind = "giftcard" | "smm";
+export type Supplier = "libya_play" | "plus";
+
+export interface CategoryRow {
+  id: string;
+  kind: ProductKind;
+  supplier: Supplier;
+  supplier_category_ref: string | null;
+  name: string;
+  image: string | null;
+  sort_order: number;
+  enabled: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface ProductRow {
+  id: string;
+  category_id: string;
+  kind: ProductKind;
+  supplier: Supplier;
+  supplier_product_ref: string;
+  supplier_sub_category_ref: string | null;
+  name: string;
+  description: string | null;
+  image: string | null;
+  cost_price: string;
+  sell_price: string;
+  currency: string;
+  price_per_1000: boolean;
+  min_quantity: number | null;
+  max_quantity: number | null;
+  available: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type OrderStatus = "pending" | "processing" | "completed" | "failed" | "ambiguous_error" | "refunded";
+
+export interface OrderRow {
+  id: string;
+  user_id: string;
+  product_id: string;
+  kind: ProductKind;
+  quantity: number;
+  target_link: string | null;
+  unit_price: string;
+  total_price: string;
+  status: OrderStatus;
+  wallet_debit_transaction_id: string | null;
+  wallet_refund_transaction_id: string | null;
+  supplier_order_ref: string | null;
+  supplier_response: unknown;
+  error_message: string | null;
+  created_at: Date;
+  updated_at: Date;
 }

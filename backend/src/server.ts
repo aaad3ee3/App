@@ -1,14 +1,17 @@
 import { buildApp } from "./app";
 import { env } from "./config/env";
 import { startExpireTopupsJob } from "./jobs/expire-topups.job";
+import { startPollSmmOrdersJob } from "./jobs/poll-smm-orders.job";
 
 async function main() {
   const app = buildApp();
   const expireJobHandle = startExpireTopupsJob(5 * 60_000);
+  const pollSmmJobHandle = startPollSmmOrdersJob(2 * 60_000);
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "shutting down");
     clearInterval(expireJobHandle);
+    clearInterval(pollSmmJobHandle);
     await app.close();
     process.exit(0);
   };

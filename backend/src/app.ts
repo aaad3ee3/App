@@ -11,6 +11,8 @@ import walletRoutes from "./modules/wallet/wallet.routes";
 import topupsRoutes from "./modules/topups/topups.routes";
 import smsRoutes from "./modules/sms/sms.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import catalogRoutes from "./modules/catalog/catalog.routes";
+import ordersRoutes from "./modules/orders/orders.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -41,6 +43,8 @@ export function buildApp() {
   app.register(topupsRoutes, { prefix: "/api/v1/topups" });
   app.register(smsRoutes, { prefix: "/api/v1/webhooks/sms" });
   app.register(adminRoutes, { prefix: "/api/v1/admin" });
+  app.register(catalogRoutes, { prefix: "/api/v1/catalog" });
+  app.register(ordersRoutes, { prefix: "/api/v1/orders" });
 
   return app;
 }

@@ -46,6 +46,14 @@ const envSchema = z.object({
   // Plus (SMM/growth supplier) — same "optional until wired into a route" reasoning.
   PLUS_BASE_URL: z.string().default("https://hamadh.net/api/v2"),
   PLUS_API_KEY: z.string().optional(),
+
+  // Catalog sync (src/modules/catalog/catalog-sync.service.ts).
+  // Markup applied over supplier cost to compute our sell price, e.g. 0.15 = +15%.
+  CATALOG_MARKUP_PERCENT: z.coerce.number().nonnegative().default(0.15),
+  // Plus quotes prices in USD; we normalize everything to LYD at sync time so the orders
+  // engine never juggles currencies. NO sane default exists for a parallel-market rate —
+  // this MUST be set to the real current rate before running a sync for real.
+  PLUS_USD_TO_LYD_RATE: z.coerce.number().positive().default(5),
 });
 
 export type Env = z.infer<typeof envSchema>;

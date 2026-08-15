@@ -37,3 +37,23 @@ export const USER_STATUS = {
   ACTIVE: "active",
   DISABLED: "disabled",
 } as const;
+
+export const PRODUCT_KIND = {
+  GIFTCARD: "giftcard",
+  SMM: "smm",
+} as const;
+
+export const SUPPLIER = {
+  LIBYA_PLAY: "libya_play",
+  PLUS: "plus",
+} as const;
+
+export const ORDER_STATUS = {
+  PENDING: "pending",
+  PROCESSING: "processing",
+  COMPLETED: "completed",
+  FAILED: "failed",
+  /** Supplier call's outcome is unknown (network failure, no response) — never auto-refunded, needs admin. */
+  AMBIGUOUS_ERROR: "ambiguous_error",
+  REFUNDED: "refunded",
+} as const;
