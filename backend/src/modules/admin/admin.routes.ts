@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { env } from "../../config/env";
+import { keyByUser } from "../../plugins/rate-limit.plugin";
 import type { OrderStatus } from "../../db/types";
 import {
   creditTopupManuallySchema,
@@ -20,8 +22,8 @@ import * as adminService from "./admin.service";
 const idParamSchema = z.object({ id: z.string().uuid() });
 
 export default async function adminRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", app.authenticate);
-  app.addHook("preHandler", app.requireAdmin);
+  app.addHook("onRequest", app.authenticate);
+  app.addHook("onRequest", app.requireAdmin);
 
   app.get("/sms-events", async (request) => {
     const { match_status, page, page_size } = listSmsEventsQuerySchema.parse(request.query);
@@ -51,11 +53,17 @@ export default async function adminRoutes(app: FastifyInstance) {
     return adminService.rejectTopup(request.user!.id, id, note);
   });
 
-  app.post("/topup-requests/:id/credit-manually", async (request) => {
-    const { id } = idParamSchema.parse(request.params);
-    const { amount, note } = creditTopupManuallySchema.parse(request.body);
-    return adminService.creditTopupManually(request.user!.id, id, amount, note);
-  });
+  // Credits a wallet directly, so it is the single most abusable endpoint in the app if
+  // an admin token is ever stolen. Rate limited per admin on top of the audit log.
+  app.post(
+    "/topup-requests/:id/credit-manually",
+    { config: { rateLimit: { max: env.RATE_LIMIT_ADMIN_WRITE_MAX, timeWindow: env.RATE_LIMIT_ADMIN_WRITE_WINDOW_MS, keyGenerator: keyByUser } } },
+    async (request) => {
+      const { id } = idParamSchema.parse(request.params);
+      const { amount, note } = creditTopupManuallySchema.parse(request.body);
+      return adminService.creditTopupManually(request.user!.id, id, amount, note);
+    }
+  );
 
   app.get("/users", async (request) => {
     const { page, page_size } = listUsersQuerySchema.parse(request.query);
@@ -69,9 +77,15 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   // --- Catalog ---
 
-  app.post("/catalog/sync", async () => {
-    return adminService.syncCatalog();
-  });
+  // Walks both suppliers' entire catalogs, so it is by far the heaviest endpoint here and
+  // the easiest way for a stolen admin token to burn our supplier API quota.
+  app.post(
+    "/catalog/sync",
+    { config: { rateLimit: { max: 5, timeWindow: env.RATE_LIMIT_ADMIN_WRITE_WINDOW_MS, keyGenerator: keyByUser } } },
+    async () => {
+      return adminService.syncCatalog();
+    }
+  );
 
   app.get("/catalog/categories", async () => {
     return { items: await adminService.listCategoriesAdmin() };
@@ -107,9 +121,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     return adminService.resolveAmbiguousOrderCompleted(request.user!.id, id, note);
   });
 
-  app.post("/orders/:id/refund", async (request) => {
-    const { id } = idParamSchema.parse(request.params);
-    const { note } = resolveOrderSchema.parse(request.body);
-    return adminService.refundOrderAdmin(request.user!.id, id, note);
-  });
+  // Also credits a wallet — same reasoning as credit-manually above.
+  app.post(
+    "/orders/:id/refund",
+    { config: { rateLimit: { max: env.RATE_LIMIT_ADMIN_WRITE_MAX, timeWindow: env.RATE_LIMIT_ADMIN_WRITE_WINDOW_MS, keyGenerator: keyByUser } } },
+    async (request) => {
+      const { id } = idParamSchema.parse(request.params);
+      const { note } = resolveOrderSchema.parse(request.body);
+      return adminService.refundOrderAdmin(request.user!.id, id, note);
+    }
+  );
 }

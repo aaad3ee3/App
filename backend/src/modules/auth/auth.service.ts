@@ -21,6 +21,9 @@ async function issueSession(userId: string, meta: SessionMeta): Promise<string> 
     userAgent: meta.userAgent,
     ipAddress: meta.ipAddress,
   });
+  // Trim to the newest N live sessions, so a token stolen from an old device stops
+  // working once the owner has signed in from a few newer ones.
+  await repo.revokeExcessSessions(userId, env.MAX_SESSIONS_PER_USER);
   return token;
 }
 
@@ -71,4 +74,13 @@ export async function login(input: LoginInput, meta: SessionMeta) {
 
 export async function logout(token: string): Promise<void> {
   await repo.revokeSessionByTokenHash(sha256Hex(token));
+}
+
+/**
+ * Signs the user out on every device. This is the user-facing remedy for a lost or
+ * stolen phone, so it must revoke the caller's own session too.
+ */
+export async function logoutEverywhere(userId: string): Promise<{ revoked: number }> {
+  const revoked = await repo.revokeAllSessionsForUser(userId);
+  return { revoked };
 }

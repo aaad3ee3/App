@@ -31,9 +31,16 @@ export default fp(async function errorHandlerPlugin(app: FastifyInstance) {
       return;
     }
 
-    // @fastify/rate-limit throws errors with statusCode 429
-    if ((error as { statusCode?: number }).statusCode === 429) {
-      reply.status(429).send({ error: { code: "rate_limited", message: "Too many requests" } });
+    // Fastify raises typed errors with an accurate statusCode for malformed requests —
+    // body too large (413), bad JSON (400), unsupported media type (415), rate limited
+    // (429). These are the caller's fault, so echo the status instead of masking them as
+    // 500s, which would both mislead clients and bury real server faults in the logs.
+    const fastifyError = error as { statusCode?: number; code?: string; message?: string };
+    const statusCode = fastifyError.statusCode;
+    if (typeof statusCode === "number" && statusCode >= 400 && statusCode < 500) {
+      const code = statusCode === 429 ? "rate_limited" : (fastifyError.code ?? "bad_request");
+      // This message is Fastify's own text, not anything user-supplied.
+      reply.status(statusCode).send({ error: { code, message: fastifyError.message ?? "Bad request" } });
       return;
     }
 

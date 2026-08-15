@@ -8,7 +8,7 @@ const listQuerySchema = z.object({
 });
 
 export default async function walletRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", app.authenticate);
+  app.addHook("onRequest", app.authenticate);
 
   app.get("/", async (request) => {
     return walletService.getMyWallet(request.user!.id);

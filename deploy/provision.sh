@@ -75,6 +75,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
   sed -i "s#^DATABASE_URL=.*#DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}#" "$ENV_FILE"
   sed -i "s#^NODE_ENV=.*#NODE_ENV=production#" "$ENV_FILE"
   sed -i "s#^CORS_ALLOWED_ORIGINS=.*#CORS_ALLOWED_ORIGINS=https://${DOMAIN}#" "$ENV_FILE"
+  # Exactly one proxy (the nginx site installed below) sits in front of the API. The
+  # backend refuses to start in production with this at 0, because that would collapse
+  # every client into one rate-limit bucket.
+  sed -i "s#^TRUST_PROXY_HOPS=.*#TRUST_PROXY_HOPS=1#" "$ENV_FILE"
+  # A signed webhook is the only thing standing between a stranger and free wallet
+  # credit, so generate a real secret rather than leaving the example placeholder.
+  if command -v openssl >/dev/null 2>&1; then
+    sed -i "s#^SMS_WEBHOOK_HMAC_SECRET=.*#SMS_WEBHOOK_HMAC_SECRET=$(openssl rand -hex 32)#" "$ENV_FILE"
+  fi
   chown "$APP_USER":"$APP_USER" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
   NEEDS_ENV_EDIT=1
@@ -89,6 +98,8 @@ systemctl daemon-reload
 systemctl enable store-backend
 
 echo "==> Configuring Nginx (HTTP only for now — certbot adds HTTPS below)"
+mkdir -p /etc/nginx/snippets
+cp "$APP_DIR/deploy/security-headers.conf" /etc/nginx/snippets/sayeh-security-headers.conf
 sed -e "s#__DOMAIN__#${DOMAIN}#g" -e "s#__APP_DIR__#${APP_DIR}#g" \
   "$APP_DIR/deploy/nginx.conf.template" > /etc/nginx/sites-available/store
 ln -sf /etc/nginx/sites-available/store /etc/nginx/sites-enabled/store

@@ -19,15 +19,43 @@ const envSchema = z.object({
     .default("Libyana,SMSLibyana")
     .transform((v) => v.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)),
 
+  // How many proxy hops sit in front of this process. Behind the nginx config in
+  // deploy/nginx.conf.template that is exactly 1. This MUST be accurate: too low and
+  // every client collapses into the proxy's own IP (one shared rate-limit bucket, so a
+  // single attacker can lock out every user); too high and a client can spoof its
+  // address by sending its own X-Forwarded-For, dodging per-IP limits entirely.
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
+
+  // Largest request body we accept, in bytes. Nothing this API takes is big — the
+  // largest legitimate payload is an SMS webhook — so keep it small; it costs an
+  // attacker nothing to send megabytes at an unauthenticated endpoint otherwise.
+  MAX_BODY_BYTES: z.coerce.number().int().positive().default(64 * 1024),
+
+  RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(300),
+  RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
   RATE_LIMIT_LOGIN_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().positive().default(5),
   RATE_LIMIT_REGISTER_WINDOW_MS: z.coerce.number().int().positive().default(600_000),
   RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().positive().default(120),
   RATE_LIMIT_WEBHOOK_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  // Money-moving endpoints are limited per authenticated user, not per IP — several
+  // users legitimately share one mobile-carrier NAT address, and one logged-in account
+  // shouldn't be able to machine-gun orders at the supplier regardless of its IP.
+  RATE_LIMIT_ORDER_MAX: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_ORDER_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_TOPUP_MAX: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_TOPUP_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_ADMIN_WRITE_MAX: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_ADMIN_WRITE_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
 
   LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(5),
+
+  // Caps how many live sessions one account can hold. Without a cap, an attacker who
+  // learns a password can quietly mint unlimited long-lived tokens; with it, the oldest
+  // session is revoked on each new login, so stolen tokens age out of use.
+  MAX_SESSIONS_PER_USER: z.coerce.number().int().positive().default(5),
 
   CORS_ALLOWED_ORIGINS: z
     .string()
@@ -58,6 +86,69 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** Placeholder values shipped in .env.example. Fine locally, never acceptable in production. */
+const PLACEHOLDER_SECRETS = [
+  "change-me",
+  "change-me-strong-password",
+  "changeme",
+  "secret",
+  "password",
+  "replace-me",
+  "your-secret-here",
+  "test",
+];
+
+function looksPlaceholder(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return PLACEHOLDER_SECRETS.some((p) => normalized === p || normalized.startsWith(`${p}-`) || normalized.startsWith(`${p}_`));
+}
+
+/**
+ * Extra checks that only make sense once real money and real customers are involved.
+ * A misconfigured production box should refuse to boot loudly rather than come up
+ * quietly with a guessable webhook secret or a wide-open CORS policy.
+ */
+function assertProductionSafety(cfg: Env): void {
+  if (cfg.NODE_ENV !== "production") return;
+  const problems: string[] = [];
+
+  if (cfg.SMS_WEBHOOK_HMAC_SECRET.length < 32 || looksPlaceholder(cfg.SMS_WEBHOOK_HMAC_SECRET)) {
+    problems.push(
+      "SMS_WEBHOOK_HMAC_SECRET must be a unique random value of at least 32 characters " +
+        "(anyone who guesses it can credit wallets at will) — generate one with: openssl rand -hex 32"
+    );
+  }
+
+  if (cfg.SEED_ADMIN_PASSWORD && (cfg.SEED_ADMIN_PASSWORD.length < 12 || looksPlaceholder(cfg.SEED_ADMIN_PASSWORD))) {
+    problems.push("SEED_ADMIN_PASSWORD must be a unique password of at least 12 characters, not the example placeholder");
+  }
+
+  if (cfg.CORS_ALLOWED_ORIGINS.includes("*")) {
+    problems.push("CORS_ALLOWED_ORIGINS must list explicit https origins, never '*'");
+  }
+
+  const insecureOrigin = cfg.CORS_ALLOWED_ORIGINS.find((o) => o.startsWith("http://") && !o.startsWith("http://localhost"));
+  if (insecureOrigin) {
+    problems.push(`CORS_ALLOWED_ORIGINS contains a plaintext origin (${insecureOrigin}); use https in production`);
+  }
+
+  // The app is deployed behind nginx (deploy/nginx.conf.template). Leaving this at 0 there
+  // makes every request look like it came from 127.0.0.1, so all clients share a single
+  // rate-limit bucket and per-IP login throttling stops working.
+  if (cfg.TRUST_PROXY_HOPS === 0) {
+    problems.push(
+      "TRUST_PROXY_HOPS is 0 — set it to the number of proxies in front of this process " +
+        "(1 for the bundled nginx setup), otherwise every client shares one rate-limit bucket"
+    );
+  }
+
+  if (problems.length > 0) {
+    // eslint-disable-next-line no-console
+    console.error(`Refusing to start in production:\n  - ${problems.join("\n  - ")}`);
+    throw new Error("Unsafe production environment configuration");
+  }
+}
+
 function loadEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
@@ -65,6 +156,7 @@ function loadEnv(): Env {
     console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");
   }
+  assertProductionSafety(parsed.data);
   return parsed.data;
 }
 

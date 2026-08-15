@@ -41,6 +41,11 @@ export default async function authRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  app.post("/logout-all", { preHandler: app.authenticate }, async (request, reply) => {
+    const result = await authService.logoutEverywhere(request.user!.id);
+    reply.send(result);
+  });
+
   app.get("/me", { preHandler: app.authenticate }, async (request) => {
     const user = await findUserById(request.user!.id);
     if (!user) throw new HttpError(404, "not_found", "User not found");

@@ -6,7 +6,7 @@ const listCategoriesQuerySchema = z.object({ kind: z.enum(["giftcard", "smm"]).o
 const idParamSchema = z.object({ id: z.string().uuid() });
 
 export default async function catalogRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", app.authenticate);
+  app.addHook("onRequest", app.authenticate);
 
   app.get("/categories", async (request) => {
     const { kind } = listCategoriesQuerySchema.parse(request.query);

@@ -38,8 +38,46 @@ export function createSession(
   });
 }
 
+/**
+ * Keeps only the `keep` newest live sessions for a user, revoking any older ones.
+ *
+ * Without a cap, anyone who learns a password can quietly mint unlimited long-lived
+ * tokens that survive a later password change; with it, those tokens are pushed out as
+ * the legitimate owner keeps signing in. Also bounds how much a single account can grow
+ * the sessions table.
+ */
+export async function revokeExcessSessions(userId: string, keep: number): Promise<number> {
+  const result = await db.raw<{ rowCount: number }>(
+    `UPDATE sessions SET revoked_at = now()
+     WHERE id IN (
+       SELECT id FROM sessions
+       WHERE user_id = ? AND revoked_at IS NULL AND expires_at > now()
+       ORDER BY created_at DESC
+       OFFSET ?
+     )`,
+    [userId, keep]
+  );
+  return result.rowCount ?? 0;
+}
+
 export function revokeSessionByTokenHash(tokenHash: string): Promise<number> {
   return db("sessions").where({ token_hash: tokenHash }).whereNull("revoked_at").update({ revoked_at: new Date() });
+}
+
+/** Revokes every live session for a user — used by "sign out everywhere". */
+export function revokeAllSessionsForUser(userId: string): Promise<number> {
+  return db("sessions").where({ user_id: userId }).whereNull("revoked_at").update({ revoked_at: new Date() });
+}
+
+/**
+ * Deletes long-dead session rows. Sessions are only useful while live; keeping revoked
+ * and expired rows forever grows the table without bound and keeps token hashes on disk
+ * longer than they serve any purpose.
+ */
+export function purgeDeadSessions(olderThan: Date): Promise<number> {
+  return db("sessions")
+    .where((qb) => qb.where("expires_at", "<", olderThan).orWhere("revoked_at", "<", olderThan))
+    .del();
 }
 
 export function registerFailedLogin(

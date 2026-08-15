@@ -1,5 +1,6 @@
 import type { Knex } from "knex";
 import { db } from "../../db/knex";
+import { sanitizeImageUrl, sanitizeName, sanitizeText } from "../../lib/sanitize";
 import type { CategoryRow, ProductKind, ProductRow, Supplier } from "../../db/types";
 
 export interface UpsertCategoryInput {
@@ -15,6 +16,10 @@ export interface UpsertCategoryInput {
  * Plus's synthetic platform categories (supplier_category_ref is null there) — see the
  * expression unique index in the categories migration. Deliberately does NOT touch
  * `enabled`/`sort_order` on conflict so admin overrides survive repeated syncs.
+ *
+ * Name and image are sanitized here rather than at the call site: this function and
+ * upsertProduct are the only ways supplier data enters the catalog tables, so cleaning
+ * them here means no future sync path can accidentally skip it.
  */
 export async function upsertCategory(input: UpsertCategoryInput): Promise<string> {
   const result = await db.raw<{ rows: { id: string }[] }>(
@@ -23,7 +28,13 @@ export async function upsertCategory(input: UpsertCategoryInput): Promise<string
      ON CONFLICT (supplier, COALESCE(supplier_category_ref, name))
      DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image, updated_at = now()
      RETURNING id`,
-    [input.kind, input.supplier, input.supplierCategoryRef, input.name, input.image]
+    [
+      input.kind,
+      input.supplier,
+      input.supplierCategoryRef,
+      sanitizeName(input.name, "تصنيف", 200),
+      sanitizeImageUrl(input.image),
+    ]
   );
   return result.rows[0]!.id;
 }
@@ -59,9 +70,10 @@ export async function upsertProduct(input: UpsertProductInput): Promise<string> 
     supplier: input.supplier,
     supplier_product_ref: input.supplierProductRef,
     supplier_sub_category_ref: input.supplierSubCategoryRef,
-    name: input.name,
-    description: input.description,
-    image: input.image,
+    // Sanitized here for the same reason as upsertCategory above — single choke point.
+    name: sanitizeName(input.name, input.supplierProductRef, 300),
+    description: sanitizeText(input.description, 1000),
+    image: sanitizeImageUrl(input.image),
     cost_price: input.costPrice.toFixed(4),
     sell_price: input.sellPrice.toFixed(4),
     currency: input.currency,

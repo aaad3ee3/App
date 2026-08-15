@@ -1,3 +1,4 @@
+import { generateOpaqueToken, sha256Hex } from "../src/lib/crypto";
 import { db } from "../src/db/knex";
 import { DEFAULT_CURRENCY, WALLET_TX_REFERENCE_TYPES, WALLET_TX_TYPES } from "../src/config/constants";
 import * as walletRepo from "../src/modules/wallet/wallet.repository";
@@ -119,4 +120,18 @@ export async function createTestProduct(
     .returning("*");
   if (!product) throw new Error("failed to insert test product");
   return product;
+}
+
+/**
+ * Issues a real session row and returns the plaintext bearer token, so HTTP-level tests
+ * can authenticate the same way the mobile app does.
+ */
+export async function createTestSession(userId: string): Promise<string> {
+  const token = generateOpaqueToken();
+  await db("sessions").insert({
+    user_id: userId,
+    token_hash: sha256Hex(token),
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  });
+  return token;
 }

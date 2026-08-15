@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { env } from "../../config/env";
+import { keyByUser } from "../../plugins/rate-limit.plugin";
 import * as ordersService from "./orders.service";
 
 const createOrderSchema = z.object({
@@ -16,17 +18,32 @@ const listQuerySchema = z.object({
 const idParamSchema = z.object({ id: z.string().uuid() });
 
 export default async function ordersRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", app.authenticate);
+  app.addHook("onRequest", app.authenticate);
 
-  app.post("/", async (request, reply) => {
-    const input = createOrderSchema.parse(request.body);
-    const order = await ordersService.createOrder(request.user!.id, {
-      productId: input.product_id,
-      quantity: input.quantity,
-      targetLink: input.target_link,
-    });
-    reply.status(201).send(order);
-  });
+  app.post(
+    "/",
+    {
+      // Keyed per user, not per IP: this endpoint debits a wallet and calls a paid
+      // supplier API, so one account must not be able to fire it in a tight loop even
+      // from an address it shares with legitimate customers.
+      config: {
+        rateLimit: {
+          max: env.RATE_LIMIT_ORDER_MAX,
+          timeWindow: env.RATE_LIMIT_ORDER_WINDOW_MS,
+          keyGenerator: keyByUser,
+        },
+      },
+    },
+    async (request, reply) => {
+      const input = createOrderSchema.parse(request.body);
+      const order = await ordersService.createOrder(request.user!.id, {
+        productId: input.product_id,
+        quantity: input.quantity,
+        targetLink: input.target_link,
+      });
+      reply.status(201).send(order);
+    }
+  );
 
   app.get("/", async (request) => {
     const { page, page_size } = listQuerySchema.parse(request.query);
