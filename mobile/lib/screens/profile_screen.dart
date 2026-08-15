@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import 'auth/login_screen.dart';
+import 'store/orders_history_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -57,7 +58,18 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('طلباتي'),
+            trailing: const Icon(Icons.chevron_left_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const OrdersHistoryScreen()),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: () => _logout(context),
           style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),

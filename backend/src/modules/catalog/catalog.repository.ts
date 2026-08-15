@@ -20,7 +20,7 @@ export async function upsertCategory(input: UpsertCategoryInput): Promise<string
   const result = await db.raw<{ rows: { id: string }[] }>(
     `INSERT INTO categories (kind, supplier, supplier_category_ref, name, image)
      VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT ON CONSTRAINT uq_categories_supplier_ref
+     ON CONFLICT (supplier, COALESCE(supplier_category_ref, name))
      DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image, updated_at = now()
      RETURNING id`,
     [input.kind, input.supplier, input.supplierCategoryRef, input.name, input.image]

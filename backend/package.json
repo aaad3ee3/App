@@ -19,6 +19,7 @@
     "seed:admin": "tsx src/scripts/seed-admin.ts",
     "check:libyaplay": "tsx src/scripts/check-libyaplay.ts",
     "check:plus": "tsx src/scripts/check-plus.ts",
+    "seed:catalog-fixtures": "tsx src/scripts/seed-catalog-fixtures.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

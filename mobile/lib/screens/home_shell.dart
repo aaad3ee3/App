@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
-import 'store_placeholder_screen.dart';
+import 'store/store_screen.dart';
 import 'wallet/wallet_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -14,7 +14,7 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   static const _titles = ['المحفظة', 'المتجر', 'حسابي'];
-  static const _pages = [WalletScreen(), StorePlaceholderScreen(), ProfileScreen()];
+  static const _pages = [WalletScreen(), StoreScreen(), ProfileScreen()];
 
   @override
   Widget build(BuildContext context) {
