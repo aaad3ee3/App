@@ -36,6 +36,12 @@ const envSchema = z.object({
 
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(8).optional(),
+
+  // Libya Play (gift card supplier) — optional because the adapter isn't wired into any
+  // route yet (catalog/order module is a future phase); required once it is.
+  LIBYA_PLAY_BASE_URL: z.string().default("https://api.libyaplay.com/portal"),
+  LIBYA_PLAY_API_KEY: z.string().optional(),
+  LIBYA_PLAY_EMAIL: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
