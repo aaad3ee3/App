@@ -1,15 +1,79 @@
-// Smoke test: the app boots to the splash screen without throwing. Deeper flows (login,
-// wallet, top-up) need a live backend and are covered by manual/E2E verification instead.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile/main.dart';
+import 'package:sayeh/main.dart';
+import 'package:sayeh/screens/auth/login_screen.dart';
+import 'package:sayeh/theme/app_theme.dart';
+import 'package:sayeh/widgets/sayeh_logo.dart';
+
+/// flutter_secure_storage talks to a platform channel that does not exist in a widget
+/// test. Stubbing it lets the real startup path (splash -> AuthStore.bootstrap -> route)
+/// run end to end; without it the test exercises an error branch instead of the flow
+/// users actually take.
+void _stubSecureStorage({String? storedToken}) {
+  const channel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    channel,
+    (call) async => switch (call.method) {
+      'read' => storedToken,
+      'readAll' => <String, String>{},
+      _ => null,
+    },
+  );
+}
 
 void main() {
-  testWidgets('App boots and shows the splash screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const StoreApp());
+  setUp(() => _stubSecureStorage());
+
+  testWidgets('boots to a branded splash screen', (tester) async {
+    await tester.pumpWidget(const SayehApp());
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(SayehLogo), findsOneWidget);
+    expect(find.text('sayeh'), findsOneWidget);
+
+    // Drain the splash hold and the route transition. pumpAndSettle would time out here:
+    // the progress indicator animates forever, so it never reaches a settled frame.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('routes a signed-out user to the login screen', (tester) async {
+    await tester.pumpWidget(const SayehApp());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
+  testWidgets('lays out right-to-left for Arabic', (tester) async {
+    await tester.pumpWidget(const SayehApp());
+    await tester.pump();
+
+    expect(Directionality.of(tester.element(find.byType(SayehLogo))), TextDirection.rtl);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  group('theme', () {
+    test('light and dark both carry the brand palette', () {
+      expect(AppTheme.light.colorScheme.primary, AppColors.navy);
+      expect(AppTheme.light.colorScheme.secondary, AppColors.gold);
+      expect(AppTheme.light.scaffoldBackgroundColor, AppColors.background);
+
+      // Dark mode inverts which brand colour leads: navy is the background there, so gold
+      // has to carry the primary role to stay legible.
+      expect(AppTheme.dark.colorScheme.primary, AppColors.goldLight);
+      expect(AppTheme.dark.scaffoldBackgroundColor, AppColors.darkBackground);
+    });
+
+    test('keeps a Latin fallback so prices do not render as tofu', () {
+      // Cairo ships no Latin glyphs; without the fallback, every LYD amount and Latin
+      // product name would render as empty boxes.
+      expect(AppTheme.fontFallback, contains('Roboto'));
+    });
   });
 }

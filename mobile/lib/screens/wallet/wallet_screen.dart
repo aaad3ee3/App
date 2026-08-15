@@ -7,6 +7,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/topup_service.dart';
 import '../../services/wallet_service.dart';
+import '../../theme/app_theme.dart';
 import '../topup/topup_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -126,33 +127,75 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [scheme.primary, scheme.primary.withValues(alpha: 0.8)],
+        gradient: const LinearGradient(
+          colors: [AppColors.navy, AppColors.navyDark],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
+      // Deliberately undecorated. A low-alpha gold flourish was tried here and read as a
+      // grey smudge — warm colours lose their chroma at low opacity over dark navy — so
+      // the gold now appears only where it means something: the amount's currency and
+      // the top-up action.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('رصيد المحفظة', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
-          const SizedBox(height: 8),
-          Text(
-            '${balance?.amount.toStringAsFixed(2) ?? '0.00'} ${balance?.currency ?? 'LYD'}',
-            style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Text(
+                'رصيد المحفظة',
+                style: TextStyle(color: AppColors.cream.withValues(alpha: 0.82), fontSize: 14),
+              ),
+              const Spacer(),
+              const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 20),
+            ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
+          Row(
+            textBaseline: TextBaseline.alphabetic,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            children: [
+              Text(
+                balance?.amount.toStringAsFixed(2) ?? '0.00',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                balance?.currency ?? 'LYD',
+                style: const TextStyle(
+                  color: AppColors.goldLight,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: onTopupPressed,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: scheme.primary),
-              icon: const Icon(Icons.add_circle_outline),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.gold,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add_rounded),
               label: const Text('شحن الرصيد'),
             ),
           ),
@@ -171,15 +214,15 @@ class _PendingTopupBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.amber.shade50,
+      color: AppColors.warningBg,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade800),
+              const Icon(Icons.hourglass_top_rounded, color: AppColors.warning),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -226,19 +269,22 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCredit = transaction.isCredit;
-    final color = isCredit ? Colors.green.shade700 : Colors.red.shade700;
+    final color = isCredit ? AppColors.success : AppColors.danger;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.1),
+          backgroundColor: (isCredit ? AppColors.successBg : AppColors.dangerBg),
           child: Icon(isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: color),
         ),
-        title: Text(_typeLabel),
-        subtitle: Text(DateFormat('yyyy/MM/dd — HH:mm').format(transaction.createdAt.toLocal())),
+        title: Text(_typeLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+          DateFormat('yyyy/MM/dd — HH:mm').format(transaction.createdAt.toLocal()),
+          style: const TextStyle(fontSize: 12.5),
+        ),
         trailing: Text(
           '${isCredit ? '+' : ''}${transaction.amount}',
-          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15),
         ),
       ),
     );

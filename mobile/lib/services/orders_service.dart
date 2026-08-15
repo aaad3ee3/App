@@ -10,7 +10,7 @@ class OrdersService {
       '/orders',
       body: {
         'product_id': productId,
-        if (quantity != null) 'quantity': quantity,
+        'quantity': ?quantity,
         if (targetLink != null && targetLink.isNotEmpty) 'target_link': targetLink,
       },
     );

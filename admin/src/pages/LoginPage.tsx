@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { SayehLogo } from "../components/SayehLogo";
 
 export function LoginPage() {
   const { user, login, error } = useAuth();
@@ -27,7 +28,11 @@ export function LoginPage() {
   return (
     <div className="login-screen">
       <form className="login-box" onSubmit={handleSubmit}>
-        <h1>لوحة تحكم المتجر</h1>
+        <div className="login-brand">
+          <SayehLogo size={56} />
+          <span className="wordmark">sayeh</span>
+        </div>
+        <h1>لوحة التحكم</h1>
         <div className="field">
           <label>البريد الإلكتروني</label>
           <input

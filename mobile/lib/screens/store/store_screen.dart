@@ -4,6 +4,7 @@ import '../../models/category.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
+import '../../theme/app_theme.dart';
 import 'category_products_screen.dart';
 
 class StoreScreen extends StatefulWidget {
@@ -90,7 +91,26 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     if (_categories.isEmpty) {
       return Center(
-        child: Text('لا توجد فئات متاحة حالياً', style: TextStyle(color: Colors.grey.shade600)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _kind == 'giftcard' ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
+              size: 52,
+              color: AppColors.gold.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'لا توجد فئات متاحة حالياً',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'راجعنا قريباً — نضيف خدمات جديدة باستمرار',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+            ),
+          ],
+        ),
       );
     }
 
@@ -118,6 +138,8 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -129,26 +151,46 @@ class _CategoryCard extends StatelessWidget {
           children: [
             Expanded(
               child: Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                // Supplier art arrives at wildly different sizes and backgrounds; a warm
+                // tint behind it keeps the grid looking even whether or not it loads.
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: isDark
+                        ? [const Color(0xFF26344C), AppColors.darkSurface]
+                        : [AppColors.creamLight, AppColors.cream.withValues(alpha: 0.55)],
+                  ),
+                ),
                 child: category.image != null
-                    ? Image.network(
-                        category.image!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _fallbackIcon(context),
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Image.network(
+                          category.image!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => _fallbackIcon(context),
+                          loadingBuilder: (context, child, progress) => progress == null
+                              ? child
+                              : const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+                                  ),
+                                ),
+                        ),
                       )
                     : _fallbackIcon(context),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.fromLTRB(10, 11, 10, 12),
               child: Text(
                 category.name,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ),
           ],
@@ -161,7 +203,7 @@ class _CategoryCard extends StatelessWidget {
         child: Icon(
           category.isGiftcard ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
           size: 40,
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          color: AppColors.gold.withValues(alpha: 0.6),
         ),
       );
 }

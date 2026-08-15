@@ -92,7 +92,7 @@ export function CatalogPage() {
         <h1 className="page-title" style={{ margin: 0 }}>
           الكتالوج
         </h1>
-        <button className="btn" onClick={runSync} disabled={syncing}>
+        <button className="btn btn-accent" onClick={runSync} disabled={syncing}>
           {syncing ? "جارٍ المزامنة..." : "مزامنة من الموردين"}
         </button>
       </div>

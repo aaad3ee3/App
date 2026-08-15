@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { SayehLogo } from "../components/SayehLogo";
 
 const NAV_ITEMS = [
   { to: "/users", label: "المستخدمون" },
@@ -15,7 +16,10 @@ export function DashboardLayout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-title">لوحة تحكم المتجر</div>
+        <div className="sidebar-title">
+          <SayehLogo size={26} />
+          <span className="wordmark">sayeh</span>
+        </div>
         <nav>
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "active" : "")}>

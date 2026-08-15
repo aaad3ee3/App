@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/sayeh_logo.dart';
 import 'profile_screen.dart';
 import 'store/store_screen.dart';
 import 'wallet/wallet_screen.dart';
@@ -19,7 +20,17 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
+      appBar: AppBar(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SayehLogo(size: 26),
+            const SizedBox(width: 10),
+            Text(_titles[_index]),
+          ],
+        ),
+      ),
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
