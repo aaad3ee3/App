@@ -1,13 +1,17 @@
-import type { GiftCardProduct, GiftCardRedemption, GiftCardSupplierAdapter } from "./giftcard-supplier.interface";
-import { createLibyaPlayClientFromEnv, type LibyaPlayAppInfo, type LibyaPlayClient } from "./libyaplay.client";
+import type {
+  GiftCardCategory,
+  GiftCardProduct,
+  GiftCardRedemption,
+  GiftCardSubCategory,
+  GiftCardSupplierAdapter,
+} from "./giftcard-supplier.interface";
+import { createLibyaPlayClientFromEnv, type LibyaPlayClient } from "./libyaplay.client";
 
 /**
- * FUTURE PHASE — not wired into any route yet. The HTTP client (base URL + `x-api-key` /
- * `x-email` auth) is real and confirmed working against `/general/app-info`. The three
- * interface methods below still throw: Libya Play's docs for the catalog, purchase, and
- * order-status endpoints haven't been provided yet. Once they are, each method is a
- * self-contained fill-in — call `this.client.request(path, init)` and map the response
- * into the shapes `GiftCardSupplierAdapter` expects.
+ * FUTURE PHASE — not wired into any route yet (no catalog/order module exists). The HTTP
+ * client and every method below are real and confirmed against Libya Play's actual API
+ * docs (categories -> sub-categories -> products -> synchronous pay). See
+ * giftcard-supplier.interface.ts for the important idempotency caveat on `purchase`.
  */
 export class LibyaPlayAdapter implements GiftCardSupplierAdapter {
   private _client?: LibyaPlayClient;
@@ -24,32 +28,35 @@ export class LibyaPlayAdapter implements GiftCardSupplierAdapter {
     return this._client;
   }
 
-  /** Not part of GiftCardSupplierAdapter — a connectivity/credentials smoke check (see src/scripts/check-libyaplay.ts). */
-  async getAppInfo(): Promise<LibyaPlayAppInfo> {
-    return this.client.getAppInfo();
+  async listCategories(): Promise<GiftCardCategory[]> {
+    return this.client.getCategories();
   }
 
-  async listProducts(): Promise<GiftCardProduct[]> {
-    throw new Error(
-      "LibyaPlayAdapter.listProducts: not implemented — need the catalog/products endpoint spec from Libya Play docs"
-    );
+  async listSubCategories(categoryId: string): Promise<GiftCardSubCategory[]> {
+    return this.client.getSubCategories(categoryId);
   }
 
-  async purchase(_input: {
-    supplierProductId: string;
-    quantity: number;
-    idempotencyKey: string;
-  }): Promise<GiftCardRedemption> {
-    throw new Error(
-      "LibyaPlayAdapter.purchase: not implemented — need the purchase/redeem endpoint spec from Libya Play docs"
-    );
+  /** Filters to Libya Play's `pro_type=digt` (direct/synchronous pay) — see client.getProductsBySubCategory. */
+  async listProducts(subCategoryId: string): Promise<GiftCardProduct[]> {
+    const products = await this.client.getProductsBySubCategory(subCategoryId, "digt");
+    return products.map((p) => ({
+      id: p.id,
+      subCategoryId: p.subCategoryId,
+      name: p.name,
+      description: p.description,
+      image: p.image,
+      price: p.price,
+      currency: p.currencyCode,
+      available: p.available,
+    }));
   }
 
-  async getOrderStatus(
-    _supplierOrderId: string
-  ): Promise<{ status: "pending" | "fulfilled" | "failed"; redemption: GiftCardRedemption | null }> {
-    throw new Error(
-      "LibyaPlayAdapter.getOrderStatus: not implemented — need the order-status endpoint spec from Libya Play docs"
-    );
+  async purchase(input: { productId: string; env?: "sandbox" | "production" }): Promise<GiftCardRedemption> {
+    const result = await this.client.pay({ productId: input.productId, env: input.env });
+    return {
+      cardCode: result.secretNumber,
+      serialNumber: result.serialNumber || null,
+      expiresAt: result.expDate || null,
+    };
   }
 }
