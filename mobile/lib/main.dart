@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
+import 'services/app_config.dart';
 import 'services/auth_store.dart';
 import 'services/push_service.dart';
 import 'theme/app_theme.dart';
@@ -22,8 +23,16 @@ class SayehApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthStore(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthStore()),
+        // Depends on the auth store's API client, and loads immediately: the support
+        // contact and policy links are needed on the sign-up screen, before login.
+        ChangeNotifierProxyProvider<AuthStore, AppConfigStore>(
+          create: (context) => AppConfigStore(context.read<AuthStore>().api)..load(),
+          update: (_, _, previous) => previous!,
+        ),
+      ],
       child: MaterialApp(
         title: 'سايح',
         debugShowCheckedModeBanner: false,

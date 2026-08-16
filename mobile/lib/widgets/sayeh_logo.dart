@@ -14,10 +14,19 @@ class SayehLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(painter: _SayehMarkPainter()),
+    // Align with both factors at 1 keeps the mark at exactly `size` in every parent.
+    // A bare SizedBox is not enough: inside a Column using CrossAxisAlignment.stretch —
+    // which every form screen here does — the child receives a tight full-width
+    // constraint, the painter scales to it, and the logo balloons across the screen.
+    // The factors also stop it expanding inside a Row with mainAxisSize.min (the app bar).
+    final mark = Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _SayehMarkPainter()),
+      ),
     );
 
     if (!showWordmark) return mark;

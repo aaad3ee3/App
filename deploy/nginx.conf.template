@@ -38,6 +38,14 @@ server {
         proxy_read_timeout 30s;
     }
 
+    # Privacy policy and terms. These need stable public URLs because the Google Play and
+    # App Store listings link to them directly, and a store review fails on a dead link.
+    location /legal/ {
+        include /etc/nginx/snippets/sayeh-security-headers.conf;
+        alias __APP_DIR__/legal/;
+        try_files $uri $uri/ =404;
+    }
+
     # Hashed Vite build assets are content-addressed, so they can be cached hard.
     location /assets/ {
         include /etc/nginx/snippets/sayeh-security-headers.conf;

@@ -75,6 +75,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   sed -i "s#^DATABASE_URL=.*#DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/${DB_NAME}#" "$ENV_FILE"
   sed -i "s#^NODE_ENV=.*#NODE_ENV=production#" "$ENV_FILE"
   sed -i "s#^CORS_ALLOWED_ORIGINS=.*#CORS_ALLOWED_ORIGINS=https://${DOMAIN}#" "$ENV_FILE"
+  sed -i "s#^PUBLIC_BASE_URL=.*#PUBLIC_BASE_URL=https://${DOMAIN}#" "$ENV_FILE"
   # Exactly one proxy (the nginx site installed below) sits in front of the API. The
   # backend refuses to start in production with this at 0, because that would collapse
   # every client into one rate-limit bucket.
@@ -127,8 +128,13 @@ echo ""
 echo "==> Provisioning done. Next steps:"
 echo "1. Point ${DOMAIN}'s DNS A record at this server's IP."
 if [[ "$NEEDS_ENV_EDIT" == "1" ]]; then
-  echo "2. Edit ${ENV_FILE} and fill in: SMS_WEBHOOK_HMAC_SECRET, SEED_ADMIN_EMAIL/PASSWORD,"
-  echo "   LIBYA_PLAY_API_KEY/EMAIL, PLUS_API_KEY, PLUS_USD_TO_LYD_RATE."
+  echo "2. Edit ${ENV_FILE} and fill in:"
+  echo "   - SMS_GATEWAY_URL      (required: verification and password-reset codes)"
+  echo "   - SUPPORT_WHATSAPP     (required: the contact shown to customers)"
+  echo "   - SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD"
+  echo "   - LIBYA_PLAY_API_KEY / LIBYA_PLAY_EMAIL / PLUS_API_KEY"
+  echo "   - PLUS_USD_TO_LYD_RATE"
+  echo "   The app refuses to start in production until the required ones are set."
 fi
 echo "3. Run: sudo ${APP_DIR}/deploy/deploy.sh   (first deploy — builds, migrates, starts everything)"
 echo "4. Once DNS has propagated: sudo certbot --nginx -d ${DOMAIN}"

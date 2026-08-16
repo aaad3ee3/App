@@ -53,12 +53,36 @@ class AuthStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> register({required String email, required String password, String? fullName}) {
+  /// Step 1 of sign-up: asks the server to text a verification code.
+  ///
+  /// Always succeeds for a well-formed Libyana number, whether or not it is already
+  /// registered — the server deliberately does not reveal which, so the app cannot
+  /// either.
+  Future<bool> requestRegistrationCode(String phone) async {
+    lastError = null;
+    try {
+      await _api.post('/auth/register/start', body: {'phone': phone});
+      return true;
+    } on ApiException catch (e) {
+      lastError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Step 2: verify the code and create the account.
+  Future<bool> completeRegistration({
+    required String phone,
+    required String code,
+    required String password,
+    String? fullName,
+  }) {
     return _authenticate(
       () => _api.post(
-        '/auth/register',
+        '/auth/register/complete',
         body: {
-          'email': email,
+          'phone': phone,
+          'code': code,
           'password': password,
           if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
         },
@@ -66,8 +90,54 @@ class AuthStore extends ChangeNotifier {
     );
   }
 
-  Future<bool> login({required String email, required String password}) {
-    return _authenticate(() => _api.post('/auth/login', body: {'email': email, 'password': password}));
+  Future<bool> login({required String phone, required String password}) {
+    return _authenticate(() => _api.post('/auth/login', body: {'phone': phone, 'password': password}));
+  }
+
+  Future<bool> requestPasswordResetCode(String phone) async {
+    lastError = null;
+    try {
+      await _api.post('/auth/password-reset/request', body: {'phone': phone});
+      return true;
+    } on ApiException catch (e) {
+      lastError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> completePasswordReset({
+    required String phone,
+    required String code,
+    required String password,
+  }) async {
+    lastError = null;
+    try {
+      await _api.post(
+        '/auth/password-reset/complete',
+        body: {'phone': phone, 'code': code, 'password': password},
+      );
+      return true;
+    } on ApiException catch (e) {
+      lastError = e.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Deletes the account after re-authenticating. Returns null on success, or the
+  /// server's reason for refusing — the wallet still holds money, or an order is
+  /// unsettled, both of which the customer needs to see spelled out.
+  Future<String?> deleteAccount(String password) async {
+    try {
+      await _api.post('/auth/delete-account', body: {'password': password});
+      await _clearSession();
+      status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    }
   }
 
   Future<bool> _authenticate(Future<Map<String, dynamic>> Function() call) async {

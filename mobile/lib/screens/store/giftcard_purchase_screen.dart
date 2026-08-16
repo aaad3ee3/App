@@ -4,6 +4,7 @@ import '../../models/product.dart';
 import '../../models/store_order.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
+import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
 
 class GiftcardPurchaseScreen extends StatefulWidget {
@@ -112,6 +113,21 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        // Answers the question every customer has before paying and none of our
+        // competitors leaves unanswered: when do I get it?
+        Row(
+          children: [
+            Icon(Icons.schedule_rounded, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'التسليم عادةً خلال ${context.watch<AppConfigStore>().config.giftcardMinutes} دقائق — يظهر الكود في "طلباتي"',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+              ),
+            ),
+          ],
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),

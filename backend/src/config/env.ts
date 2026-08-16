@@ -101,6 +101,10 @@ const envSchema = z.object({
   // Shown in-app as the support contact. International format without '+', e.g. 218911234567.
   SUPPORT_WHATSAPP: z.string().optional(),
 
+  // Public origin of this deployment, e.g. https://sayeh.ly — used to build the privacy
+  // and terms URLs the app and the store listings link to.
+  PUBLIC_BASE_URL: z.string().url().optional(),
+
   // Push notifications (Firebase Cloud Messaging). All three are optional: with any of
   // them missing the app runs normally and simply sends nothing, which keeps local
   // development and the test suite free of Firebase credentials.

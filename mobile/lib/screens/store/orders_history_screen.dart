@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 import '../../models/store_order.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
+import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
+import '../../theme/app_theme.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
   const OrdersHistoryScreen({super.key});
@@ -146,6 +149,7 @@ class _OrderDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _statusInfo(order.status);
+    final whatsappUrl = context.watch<AppConfigStore>().config.whatsappUrl;
     return AlertDialog(
       title: const Text('تفاصيل الطلب'),
       content: Column(
@@ -169,9 +173,33 @@ class _OrderDetailDialog extends StatelessWidget {
             const SizedBox(height: 8),
             Text(order.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
           ],
+          if (order.status == 'ambiguous_error') ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningBg,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+              child: const Text(
+                'مبلغ الطلب محجوز ولم يُخصم نهائياً. نتأكد من حالته مع المورّد، وإما ننفّذه أو نرجّع المبلغ كاملاً لمحفظتك.',
+                style: TextStyle(fontSize: 13, color: AppColors.warning),
+              ),
+            ),
+          ],
         ],
       ),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق'))],
+      actions: [
+        // An order held for review is precisely when a customer needs to reach a human:
+        // their money is committed and the app cannot yet tell them the outcome.
+        if (order.status == 'ambiguous_error' && whatsappUrl != null)
+          TextButton.icon(
+            onPressed: () => launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication),
+            icon: const Icon(Icons.support_agent_rounded, size: 18),
+            label: const Text('تواصل مع الدعم'),
+          ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق')),
+      ],
     );
   }
 

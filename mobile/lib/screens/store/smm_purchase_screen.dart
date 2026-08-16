@@ -4,6 +4,7 @@ import '../../models/product.dart';
 import '../../models/store_order.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
+import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
 
 class SmmPurchaseScreen extends StatefulWidget {
@@ -136,6 +137,26 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          // SMM orders can take hours, so saying so up front prevents the "I paid and
+          // nothing happened" support message an hour later.
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'يبدأ التنفيذ خلال دقائق ويكتمل عادةً خلال ${context.watch<AppConfigStore>().config.smmHours} ساعة',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'تأكد من صحة الرابط — التنفيذ يتم على ما أدخلته ولا يمكن التراجع عنه.',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12.5),
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),

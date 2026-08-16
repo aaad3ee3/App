@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/app_config.dart';
 import '../services/auth_store.dart';
+import '../theme/app_theme.dart';
+import 'auth/delete_account_screen.dart';
 import 'auth/login_screen.dart';
 import 'store/orders_history_screen.dart';
 
@@ -17,9 +21,21 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _open(BuildContext context, String? url) async {
+    if (url == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!opened) {
+      messenger.showSnackBar(const SnackBar(content: Text('تعذّر فتح الرابط')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthStore>().user;
+    final config = context.watch<AppConfigStore>().config;
+    final initial = (user?.fullName?.isNotEmpty == true ? user!.fullName![0] : 'م').toUpperCase();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -32,8 +48,12 @@ class ProfileScreen extends StatelessWidget {
                   radius: 28,
                   backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                   child: Text(
-                    (user?.fullName?.isNotEmpty == true ? user!.fullName![0] : user?.email[0] ?? '?').toUpperCase(),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    initial,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -47,9 +67,11 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        user?.email ?? '',
+                        // Phone is the identity now, so it is what the customer expects
+                        // to see here — the number they sign in with.
+                        user?.phone ?? '',
                         textDirection: TextDirection.ltr,
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -59,22 +81,70 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+
         Card(
-          child: ListTile(
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('طلباتي'),
-            trailing: const Icon(Icons.chevron_left_rounded),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const OrdersHistoryScreen()),
-            ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: const Text('طلباتي'),
+                trailing: const Icon(Icons.chevron_left_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OrdersHistoryScreen()),
+                ),
+              ),
+              if (config.whatsappUrl != null) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.support_agent_rounded, color: AppColors.success),
+                  title: const Text('تواصل مع الدعم'),
+                  subtitle: const Text('واتساب — نرد بأسرع وقت', style: TextStyle(fontSize: 12.5)),
+                  trailing: const Icon(Icons.chevron_left_rounded),
+                  onTap: () => _open(context, config.whatsappUrl),
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 16),
+
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('شروط الاستخدام'),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                onTap: () => _open(context, config.termsUrl),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: const Text('سياسة الخصوصية'),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                onTap: () => _open(context, config.privacyUrl),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
         OutlinedButton.icon(
           onPressed: () => _logout(context),
           style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
           icon: const Icon(Icons.logout_rounded),
           label: const Text('تسجيل الخروج'),
+        ),
+        const SizedBox(height: 8),
+
+        // Deliberately last and understated — required to be reachable, but it should
+        // not sit anywhere a customer might tap it by accident.
+        TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
+          ),
+          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
+          child: const Text('حذف الحساب', style: TextStyle(fontSize: 13)),
         ),
       ],
     );

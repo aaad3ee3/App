@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_store.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/phone_field.dart';
+import '../../widgets/sayeh_logo.dart';
 import '../home_shell.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,14 +17,15 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _submitting = false;
+  bool _obscure = true;
   String? _error;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -33,18 +38,18 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final auth = context.read<AuthStore>();
-    final ok = await auth.login(email: _emailController.text.trim(), password: _passwordController.text);
+    final ok = await auth.login(
+      phone: _phoneController.text.trim(),
+      password: _passwordController.text,
+    );
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (ok) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeShell()),
-        (route) => false,
-      );
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
     } else {
-      setState(() => _error = auth.lastError ?? 'تعذر تسجيل الدخول');
+      setState(() => _error = auth.lastError ?? 'تعذّر تسجيل الدخول');
     }
   }
 
@@ -60,44 +65,54 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Form(
                 key: _formKey,
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 40),
-                    Icon(Icons.storefront_rounded, size: 56, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(height: 16),
-                    const Text(
+                    const SayehLogo(size: 72, showWordmark: true),
+                    const SizedBox(height: 36),
+                    Text(
                       'تسجيل الدخول',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'سجّل دخولك للوصول إلى محفظتك',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
-                      validator: (v) => (v == null || !v.contains('@')) ? 'أدخل بريدًا إلكترونيًا صحيحًا' : null,
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+                    PhoneField(controller: _phoneController, enabled: !_submitting, autofocus: true),
+                    const SizedBox(height: 14),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(labelText: 'كلمة المرور'),
-                      validator: (v) => (v == null || v.length < 6) ? 'كلمة المرور قصيرة جدًا' : null,
+                      enabled: !_submitting,
+                      obscureText: _obscure,
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.isEmpty) ? 'أدخل كلمة المرور' : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton(
+                        onPressed: _submitting
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                                ),
+                        child: const Text('نسيت كلمة المرور؟'),
+                      ),
+                    ),
                     if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      const SizedBox(height: 4),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.danger, fontSize: 14),
+                      ),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _submitting ? null : _submit,
                       child: _submitting
@@ -108,14 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Text('دخول'),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     TextButton(
                       onPressed: _submitting
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute(builder: (_) => const RegisterScreen()),
                               ),
-                      child: const Text('ليس لديك حساب؟ أنشئ حسابًا جديدًا'),
+                      child: const Text('ما عندك حساب؟ سجّل الآن'),
                     ),
                   ],
                 ),

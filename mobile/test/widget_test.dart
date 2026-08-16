@@ -78,6 +78,31 @@ void main() {
     expect(PushService.isAvailable, isFalse);
   }, timeout: const Timeout(Duration(seconds: 30)));
 
+  testWidgets('logo keeps its size inside a stretching column', (tester) async {
+    // Regression test: every form screen lays out with CrossAxisAlignment.stretch, which
+    // hands children a tight full-width constraint. The mark used to scale to it and
+    // balloon across the screen, painting over the heading beneath it.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [SayehLogo(size: 60)],
+          ),
+        ),
+      ),
+    );
+
+    // Scoped to the logo's own subtree — Material widgets put their own CustomPaints in
+    // the tree, and a bare byType would measure one of those instead.
+    final mark = find.descendant(
+      of: find.byType(SayehLogo),
+      matching: find.byType(CustomPaint),
+    );
+
+    expect(tester.getSize(mark.first), const Size(60, 60));
+  });
+
   group('theme', () {
     test('light and dark both carry the brand palette', () {
       expect(AppTheme.light.colorScheme.primary, AppColors.navy);
