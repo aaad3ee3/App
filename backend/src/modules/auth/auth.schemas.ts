@@ -3,7 +3,7 @@ import { normalizeLibyanaPhone } from "../../lib/phone";
 
 /**
  * Every customer-supplied number goes through here. It normalizes any format people
- * actually type (+218…, 00218…, 0912…, with spaces) and rejects anything that is not
+ * actually type (+218…, 00218…, 0921…, with spaces) and rejects anything that is not
  * Libyana — an Al-Madar number can neither fund a wallet nor receive our codes, so
  * accepting one would create an account that can never be topped up or recovered.
  */
@@ -16,7 +16,7 @@ const libyanaPhone = z
     if (!normalized) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "أدخل رقم ليبيانا صحيح (يبدأ بـ 091 أو 092)",
+        message: "أدخل رقم ليبيانا صحيح (يبدأ بـ 092 أو 094)",
       });
       return z.NEVER;
     }

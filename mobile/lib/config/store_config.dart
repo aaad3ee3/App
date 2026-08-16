@@ -1,5 +1,9 @@
-/// TODO: replace with the store's real Libyana phone number before shipping —
-/// this is what customers are instructed to transfer their top-up to.
+/// TODO: replace with the store's real Libyana number before shipping — this is the
+/// number customers are told to transfer their top-up to.
+///
+/// It must be a Libyana number (092 or 094). An Al-Madar number (091 or 093) cannot
+/// receive a Libyana balance transfer at all, so the whole top-up flow would silently
+/// fail for every customer.
 class StoreConfig {
-  static const String libyanaTopupPhoneNumber = '0910000000';
+  static const String libyanaTopupPhoneNumber = '0920000000';
 }

@@ -6,6 +6,7 @@ import 'package:sayeh/main.dart';
 import 'package:sayeh/screens/auth/login_screen.dart';
 import 'package:sayeh/services/push_service.dart';
 import 'package:sayeh/theme/app_theme.dart';
+import 'package:sayeh/widgets/phone_field.dart';
 import 'package:sayeh/widgets/sayeh_logo.dart';
 
 /// flutter_secure_storage talks to a platform channel that does not exist in a widget
@@ -101,6 +102,29 @@ void main() {
     );
 
     expect(tester.getSize(mark.first), const Size(60, 60));
+  });
+
+  group('Libyana-only phone validation', () {
+    // The carrier split is easy to get backwards and invisible in the code — nothing
+    // about 092 looks more Libyana than 091 — so it is pinned down explicitly here,
+    // matching the server-side rule in backend/src/lib/phone.ts.
+    test('accepts Libyana numbers (092 / 094) in any format', () {
+      for (final input in ['0921234567', '0941234567', '+218921234567', '00218941234567', '092 123 4567']) {
+        expect(PhoneField.validate(input), isNull, reason: '$input should be accepted');
+      }
+    });
+
+    test('rejects Al-Madar numbers (091 / 093)', () {
+      for (final madar in ['0911234567', '0931234567', '+218911234567']) {
+        expect(PhoneField.validate(madar), isNotNull, reason: '$madar must be rejected');
+      }
+    });
+
+    test('rejects malformed input', () {
+      for (final bad in ['', '123', '09212345', '0812345678']) {
+        expect(PhoneField.validate(bad), isNotNull, reason: '"$bad" must be rejected');
+      }
+    });
   });
 
   group('theme', () {

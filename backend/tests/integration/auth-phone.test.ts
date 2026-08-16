@@ -47,7 +47,7 @@ describe("phone auth", () => {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     });
 
-  async function registerUser(phone = "0912345678", password = "correct-horse-battery") {
+  async function registerUser(phone = "0921234567", password = "correct-horse-battery") {
     await post("/api/v1/auth/register/start", { phone });
     const res = await post("/api/v1/auth/register/complete", {
       phone,
@@ -60,7 +60,7 @@ describe("phone auth", () => {
 
   describe("Libyana-only numbers", () => {
     it("accepts Libyana prefixes in any format the customer might type", async () => {
-      for (const input of ["0912345678", "+218912345678", "00218 92 345 6789".replace(/\s/g, ""), "0923456789"]) {
+      for (const input of ["0921234567", "+218921234567", "00218 94 123 4567".replace(/\s/g, ""), "0941234567"]) {
         const res = await post("/api/v1/auth/register/start", { phone: input });
         expect(res.statusCode, `${input} should be accepted`).toBe(202);
       }
@@ -69,14 +69,14 @@ describe("phone auth", () => {
     it("rejects Al-Madar numbers outright", async () => {
       // Al-Madar can neither fund a wallet via the Libyana transfer flow nor receive our
       // codes, so an account on one of these numbers could never be topped up or recovered.
-      for (const madar of ["0945678901", "0955678901", "+218945678901"]) {
+      for (const madar of ["0911234567", "0931234567", "+218911234567"]) {
         const res = await post("/api/v1/auth/register/start", { phone: madar });
         expect(res.statusCode, `${madar} must be rejected`).toBe(400);
       }
     });
 
     it("rejects nonsense numbers", async () => {
-      for (const bad of ["123", "0812345678", "abcdefghij", ""]) {
+      for (const bad of ["123", "0812345678", "abcdefghij", "", "09212345"]) {
         const res = await post("/api/v1/auth/register/start", { phone: bad });
         expect(res.statusCode).toBe(400);
       }
@@ -88,19 +88,19 @@ describe("phone auth", () => {
       const res = await registerUser();
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().user.phone).toBe("0912345678");
+      expect(res.json().user.phone).toBe("0921234567");
       expect(res.json().token).toBeTruthy();
 
-      const user = await db("users").where({ phone: "0912345678" }).first();
+      const user = await db("users").where({ phone: "0921234567" }).first();
       expect(user.phone_verified_at).not.toBeNull();
     });
 
     it("refuses a wrong code, and locks the code out after repeated attempts", async () => {
-      await post("/api/v1/auth/register/start", { phone: "0912345678" });
+      await post("/api/v1/auth/register/start", { phone: "0921234567" });
 
       for (let i = 0; i < 5; i += 1) {
         const bad = await post("/api/v1/auth/register/complete", {
-          phone: "0912345678",
+          phone: "0921234567",
           code: "000000",
           password: "correct-horse-battery",
         });
@@ -109,7 +109,7 @@ describe("phone auth", () => {
 
       // The real code must now be dead too — otherwise the attempt limit is decorative.
       const res = await post("/api/v1/auth/register/complete", {
-        phone: "0912345678",
+        phone: "0921234567",
         code: lastCode(),
         password: "correct-horse-battery",
       });
@@ -120,7 +120,7 @@ describe("phone auth", () => {
       await registerUser();
       sent = [];
 
-      const res = await post("/api/v1/auth/register/start", { phone: "0912345678" });
+      const res = await post("/api/v1/auth/register/start", { phone: "0921234567" });
 
       // Same 202 as an unregistered number, and no code sent to someone else's handset.
       expect(res.statusCode).toBe(202);
@@ -128,9 +128,9 @@ describe("phone auth", () => {
     });
 
     it("requires a password long enough to be worth having", async () => {
-      await post("/api/v1/auth/register/start", { phone: "0912345678" });
+      await post("/api/v1/auth/register/start", { phone: "0921234567" });
       const res = await post("/api/v1/auth/register/complete", {
-        phone: "0912345678",
+        phone: "0921234567",
         code: lastCode(),
         password: "short",
       });
@@ -142,7 +142,7 @@ describe("phone auth", () => {
     it("signs in with the phone number", async () => {
       await registerUser();
       const res = await post("/api/v1/auth/login", {
-        phone: "0912345678",
+        phone: "0921234567",
         password: "correct-horse-battery",
       });
       expect(res.statusCode).toBe(200);
@@ -151,7 +151,7 @@ describe("phone auth", () => {
 
     it("rejects a wrong password", async () => {
       await registerUser();
-      const res = await post("/api/v1/auth/login", { phone: "0912345678", password: "wrong-password-here" });
+      const res = await post("/api/v1/auth/login", { phone: "0921234567", password: "wrong-password-here" });
       expect(res.statusCode).toBe(401);
     });
   });
@@ -161,19 +161,19 @@ describe("phone auth", () => {
       await registerUser();
       sent = [];
 
-      const requested = await post("/api/v1/auth/password-reset/request", { phone: "0912345678" });
+      const requested = await post("/api/v1/auth/password-reset/request", { phone: "0921234567" });
       expect(requested.statusCode).toBe(202);
       expect(sent).toHaveLength(1);
 
       const reset = await post("/api/v1/auth/password-reset/complete", {
-        phone: "0912345678",
+        phone: "0921234567",
         code: lastCode(),
         password: "a-brand-new-password",
       });
       expect(reset.statusCode).toBe(200);
 
       const login = await post("/api/v1/auth/login", {
-        phone: "0912345678",
+        phone: "0921234567",
         password: "a-brand-new-password",
       });
       expect(login.statusCode).toBe(200);
@@ -192,9 +192,9 @@ describe("phone auth", () => {
       expect(before.statusCode).toBe(200);
 
       sent = [];
-      await post("/api/v1/auth/password-reset/request", { phone: "0912345678" });
+      await post("/api/v1/auth/password-reset/request", { phone: "0921234567" });
       await post("/api/v1/auth/password-reset/complete", {
-        phone: "0912345678",
+        phone: "0921234567",
         code: lastCode(),
         password: "a-brand-new-password",
       });
@@ -209,7 +209,7 @@ describe("phone auth", () => {
 
     it("stays silent about unregistered numbers", async () => {
       sent = [];
-      const res = await post("/api/v1/auth/password-reset/request", { phone: "0919999999" });
+      const res = await post("/api/v1/auth/password-reset/request", { phone: "0929999999" });
 
       expect(res.statusCode).toBe(202);
       expect(sent).toHaveLength(0);
@@ -218,7 +218,7 @@ describe("phone auth", () => {
     it("never stores the code in the clear", async () => {
       await registerUser();
       sent = [];
-      await post("/api/v1/auth/password-reset/request", { phone: "0912345678" });
+      await post("/api/v1/auth/password-reset/request", { phone: "0921234567" });
 
       const row = await db("phone_verifications").where({ purpose: "reset" }).first();
       expect(row.code_hash).not.toContain(lastCode());
@@ -248,14 +248,14 @@ describe("phone auth", () => {
       expect(after.statusCode).toBe(401);
 
       // And the number is usable again by its next owner.
-      const reused = await post("/api/v1/auth/register/start", { phone: "0912345678" });
+      const reused = await post("/api/v1/auth/register/start", { phone: "0921234567" });
       expect(reused.statusCode).toBe(202);
     });
 
     it("refuses while the wallet still holds money", async () => {
       const registered = await registerUser();
       const token = registered.json().token;
-      const user = await db("users").where({ phone: "0912345678" }).first();
+      const user = await db("users").where({ phone: "0921234567" }).first();
       const wallet = await db("wallets").where({ user_id: user.id }).first();
       await creditTestWallet(user.id, wallet.id, 25);
 
@@ -269,7 +269,7 @@ describe("phone auth", () => {
     it("refuses while an order is still unsettled", async () => {
       const registered = await registerUser();
       const token = registered.json().token;
-      const user = await db("users").where({ phone: "0912345678" }).first();
+      const user = await db("users").where({ phone: "0921234567" }).first();
 
       const category = await createTestCategory({ kind: "giftcard" });
       const product = await createTestProduct(category.id, { kind: "giftcard", sellPrice: 5 });

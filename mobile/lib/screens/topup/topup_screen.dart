@@ -131,7 +131,7 @@ class _TopupScreenState extends State<TopupScreen> {
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(labelText: 'رقم ليبيانا (مثال: 0912345678)'),
+            decoration: const InputDecoration(labelText: 'رقم ليبيانا (مثال: 0921234567)'),
             validator: (v) => (v == null || v.trim().length < 9) ? 'أدخل رقم هاتف صحيح' : null,
           ),
           const SizedBox(height: 16),

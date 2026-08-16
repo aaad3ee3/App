@@ -1,16 +1,17 @@
 /**
  * Normalizes Libyan mobile numbers to a single canonical local form: `0` + 9 digits
- * (e.g. `0912345678`), regardless of how the user or the SMS gateway formatted it
- * (`+218912345678`, `00218912345678`, `218912345678`, with spaces/dashes, etc.).
+ * (e.g. `0921234567`), regardless of how the user or the SMS gateway formatted it
+ * (`+218921234567`, `00218921234567`, `218921234567`, with spaces/dashes, etc.).
  *
  * Used by both `topups.service.ts` (when a user commits to a sender phone) and
  * `sms.parser.ts` (when parsing the payer phone out of the Libyana SMS text) so the
  * matching query in `sms.matcher.ts` can compare on equality.
  *
  * Returns null if the input doesn't look like a valid Libyan mobile number after
- * normalization (9 digits after the country/trunk prefix is stripped, starting with 9 —
- * Libyana/Al-Madar mobile prefixes are 091/092/094/095 etc., i.e. always start with 9
- * once the leading 0 is dropped).
+ * normalization: 9 digits once the country/trunk prefix is stripped, always starting
+ * with 9. Deliberately carrier-agnostic — it accepts Libyana (092/094) and Al-Madar
+ * (091/093) alike, because it also parses whatever number arrives in an incoming SMS.
+ * Use `normalizeLibyanaPhone` below wherever a customer supplies their own number.
  */
 export function normalizeLibyanPhone(raw: string): string | null {
   if (!raw) return null;
@@ -37,12 +38,12 @@ export function normalizeLibyanPhone(raw: string): string | null {
 }
 
 /**
- * Libyana's mobile prefixes. Al-Madar's (094/095) are deliberately absent: the whole
+ * Libyana's mobile prefixes. Al-Madar's (091 and 093) are deliberately absent: the whole
  * payment pipeline is built on Libyana transfers, so an Al-Madar number can neither fund
  * a wallet nor receive our verification codes. Accepting one would let someone register
  * an account they can never top up or recover.
  */
-const LIBYANA_PREFIXES = ["091", "092"] as const;
+const LIBYANA_PREFIXES = ["092", "094"] as const;
 
 export function isLibyanaNumber(normalized: string): boolean {
   return LIBYANA_PREFIXES.some((prefix) => normalized.startsWith(prefix));
