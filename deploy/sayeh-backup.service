@@ -1,0 +1,11 @@
+[Unit]
+Description=Sayeh database backup
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=__APP_DIR__/deploy/backup.sh
+# Runs as root so it can read backend/.env (mode 600, owned by the app user) and write
+# to the backup directory.
+User=root

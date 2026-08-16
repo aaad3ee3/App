@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import 'api_client.dart';
+import 'push_service.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
@@ -11,11 +14,13 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 class AuthStore extends ChangeNotifier {
   AuthStore() {
     _api = ApiClient(tokenProvider: () => _token);
+    _push = PushService(_api);
   }
 
   static const _tokenKey = 'auth_token';
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   late final ApiClient _api;
+  late final PushService _push;
 
   String? _token;
   AppUser? _user;
@@ -23,6 +28,7 @@ class AuthStore extends ChangeNotifier {
   String? lastError;
 
   ApiClient get api => _api;
+  PushService get push => _push;
   AppUser? get user => _user;
   bool get isAuthenticated => status == AuthStatus.authenticated;
 
@@ -37,6 +43,9 @@ class AuthStore extends ChangeNotifier {
       final me = await _api.get('/auth/me');
       _user = AppUser.fromJson(me);
       status = AuthStatus.authenticated;
+      // Re-register on every launch: FCM rotates tokens, and a stale one silently stops
+      // delivering.
+      unawaited(_push.registerDevice());
     } catch (_) {
       await _clearSession();
       status = AuthStatus.unauthenticated;
@@ -70,6 +79,10 @@ class AuthStore extends ChangeNotifier {
       _user = AppUser.fromJson(result['user'] as Map<String, dynamic>);
       status = AuthStatus.authenticated;
       notifyListeners();
+      // Asked for here rather than at startup: prompting before the user has anything to
+      // be notified about is the reliable way to get it permanently denied. Not awaited —
+      // sign-in should not wait on a permission dialog.
+      unawaited(_push.registerDevice());
       return true;
     } on ApiException catch (e) {
       lastError = e.message;
@@ -79,6 +92,8 @@ class AuthStore extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Before revoking the session — the unregister call needs a valid bearer token.
+    await _push.unregisterDevice();
     try {
       await _api.post('/auth/logout');
     } catch (_) {

@@ -31,6 +31,11 @@ const envSchema = z.object({
   // attacker nothing to send megabytes at an unauthenticated endpoint otherwise.
   MAX_BODY_BYTES: z.coerce.number().int().positive().default(64 * 1024),
 
+  // Optional. When set, rate limits are counted in Redis so every API instance shares
+  // one budget. Leave unset for a single instance — the in-memory store is used instead,
+  // which is correct as long as exactly one process serves traffic.
+  REDIS_URL: z.string().url().optional(),
+
   RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
@@ -74,6 +79,16 @@ const envSchema = z.object({
   // Plus (SMM/growth supplier) — same "optional until wired into a route" reasoning.
   PLUS_BASE_URL: z.string().default("https://hamadh.net/api/v2"),
   PLUS_API_KEY: z.string().optional(),
+
+  // Push notifications (Firebase Cloud Messaging). All three are optional: with any of
+  // them missing the app runs normally and simply sends nothing, which keeps local
+  // development and the test suite free of Firebase credentials.
+  // Get these from the Firebase console: Project settings -> Service accounts.
+  FCM_PROJECT_ID: z.string().optional(),
+  FCM_CLIENT_EMAIL: z.string().optional(),
+  // The PEM private key. In a .env file the newlines must be written as literal \n —
+  // they are converted back in notifications.service.ts.
+  FCM_PRIVATE_KEY: z.string().optional(),
 
   // Catalog sync (src/modules/catalog/catalog-sync.service.ts).
   // Markup applied over supplier cost to compute our sell price, e.g. 0.15 = +15%.

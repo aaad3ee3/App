@@ -1,4 +1,10 @@
+import 'dart:async';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_store.dart';
+import '../theme/app_theme.dart';
 import '../widgets/sayeh_logo.dart';
 import 'profile_screen.dart';
 import 'store/store_screen.dart';
@@ -13,9 +19,57 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  StreamSubscription<RemoteMessage>? _pushSubscription;
 
   static const _titles = ['المحفظة', 'المتجر', 'حسابي'];
   static const _pages = [WalletScreen(), StoreScreen(), ProfileScreen()];
+
+  @override
+  void initState() {
+    super.initState();
+    // A notification that arrives while the app is open is NOT shown by the system on
+    // Android, so without this the user sees nothing — which matters most for exactly
+    // the messages they are waiting on ("your card is ready", "your wallet was topped
+    // up") while staring at the app.
+    _pushSubscription = context.read<AuthStore>().push.onForegroundMessage.listen(_showInAppBanner);
+  }
+
+  @override
+  void dispose() {
+    _pushSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _showInAppBanner(RemoteMessage message) {
+    final notification = message.notification;
+    if (notification == null || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        backgroundColor: AppColors.navy,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (notification.title != null)
+              Text(
+                notification.title!,
+                style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            if (notification.body != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  notification.body!,
+                  style: const TextStyle(color: AppColors.cream, fontSize: 13),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

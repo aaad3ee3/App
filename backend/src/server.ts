@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { startExpireTopupsJob } from "./jobs/expire-topups.job";
 import { startPollSmmOrdersJob } from "./jobs/poll-smm-orders.job";
 import { startPurgeSessionsJob } from "./jobs/purge-sessions.job";
+import { closeRedis } from "./lib/redis";
 
 async function main() {
   const app = buildApp();
@@ -16,6 +17,7 @@ async function main() {
     clearInterval(pollSmmJobHandle);
     clearInterval(purgeSessionsHandle);
     await app.close();
+    await closeRedis();
     process.exit(0);
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));

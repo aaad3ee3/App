@@ -114,10 +114,81 @@ sudo journalctl -u store-backend -f      # live logs
 sudo -u postgres psql store              # open a DB shell
 ```
 
-## Not covered here (worth doing before going live with real money)
+## Database backups
 
-- **Database backups** — e.g. a nightly `pg_dump` cron job shipping to off-server
-  storage. Not included; add before handling real customer funds at scale.
+`provision.sh` installs a systemd timer that runs `backup.sh` nightly at 02:30 UTC.
+Each run writes a compressed `pg_dump` to `/opt/store/backups/`, **verifies it is
+readable and contains table data** before accepting it, and only then prunes dumps
+older than 14 days — so a failed run can never leave you with nothing.
+
+```bash
+sudo /opt/store/app/deploy/backup.sh          # take one now (e.g. before a migration)
+systemctl list-timers sayeh-backup.timer      # confirm the schedule is armed
+journalctl -u sayeh-backup.service -n 50      # see recent runs
+```
+
+### Get the backups off the server
+
+By default backups sit on the same disk as the database, which protects you from a bad
+migration or a mistaken `DELETE` — but **not** from losing the server. To copy each
+backup off-box, set `BACKUP_UPLOAD_CMD` in `/opt/store/.deploy.env`; it runs after each
+successful backup with `$BACKUP_FILE` set to the new dump:
+
+```bash
+# Example using rclone (works with S3, Backblaze B2, Google Drive, …)
+BACKUP_UPLOAD_CMD='rclone copy "$BACKUP_FILE" remote:sayeh-backups/'
+```
+
+### Test the restore — the part people skip
+
+An untested backup is a guess. `restore.sh` defaults to a **drill**: it restores into a
+throwaway database, prints the recovered row counts, and cleans up, without touching
+live data.
+
+```bash
+sudo /opt/store/app/deploy/restore.sh /opt/store/backups/sayeh-<timestamp>.dump
+```
+
+The row counts should look like production. Run this monthly — the failure this guards
+against is discovering during a real outage that the dumps have been empty for weeks.
+
+For an actual recovery, add `--live`. That stops the API, snapshots the current database
+first (so a wrong call is reversible), and requires you to type a confirmation phrase:
+
+```bash
+sudo /opt/store/app/deploy/restore.sh --live /opt/store/backups/sayeh-<timestamp>.dump
+```
+
+## Running more than one API instance
+
+The default single-instance setup counts rate limits in process memory, which is correct
+for one process. **With two or more instances and no shared store, each one counts
+separately and every limit is silently multiplied by the instance count** — measured:
+two instances let 14 requests through a 10-per-minute limit.
+
+If you scale out, install Redis and point the backend at it:
+
+```bash
+sudo apt-get install -y redis-server
+sudo systemctl enable --now redis-server
+# then in /opt/store/app/backend/.env
+REDIS_URL=redis://localhost:6379
+```
+
+The backend logs which store it is using at startup, so you can confirm it took effect:
+
+```bash
+journalctl -u store-backend | grep "rate limiting"
+```
+
+If Redis becomes unreachable the limiter **fails open** — requests keep flowing
+unmetered rather than the API returning errors, since a Redis blip should not become a
+full outage. The error is logged, so alert on it if you rely on Redis.
+
+## Not covered here
+
 - **Log shipping / monitoring / alerting** beyond `journalctl`.
 - **Multi-server / zero-downtime deploys** — this is a single-box setup; `deploy.sh`
-  restarts the backend process, causing a few seconds of downtime per deploy.
+  restarts the backend process, causing a few seconds of downtime per deploy. Note that
+  running more than one API instance also requires `REDIS_URL` (see `backend/.env.example`)
+  so rate limits are shared rather than counted per-instance.

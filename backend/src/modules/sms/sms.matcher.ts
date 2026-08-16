@@ -5,6 +5,7 @@ import { buildSmsDedupeKey } from "../../lib/idempotency";
 import { normalizeLibyanPhone } from "../../lib/phone";
 import type { SmsMatchStatus } from "../../db/types";
 import * as walletRepo from "../wallet/wallet.repository";
+import * as notifications from "../notifications/notifications.service";
 import { isTrustedSender, parseLibyanaSms } from "./sms.parser";
 import * as smsRepo from "./sms.repository";
 
@@ -86,7 +87,10 @@ export async function processIncomingSms(input: IncomingSms): Promise<SmsProcess
     return { eventId, matchStatus: SMS_MATCH_STATUS.IGNORED_NO_MATCH };
   }
 
-  const matchStatus = await db.transaction(async (trx) => {
+  // The transaction returns what to notify about rather than assigning to an outer
+  // variable: no mutation across scopes, and the push details are only in hand once the
+  // credit has actually committed.
+  const { matchStatus, credited } = await db.transaction(async (trx) => {
     const candidates = await smsRepo.findMatchCandidates(trx, {
       senderPhone: normalizedPhone,
       amount: parsed.amount,
@@ -107,7 +111,7 @@ export async function processIncomingSms(input: IncomingSms): Promise<SmsProcess
         { ...commonFields, matchStatus: SMS_MATCH_STATUS.UNMATCHED },
         trx
       );
-      return SMS_MATCH_STATUS.UNMATCHED;
+      return { matchStatus: SMS_MATCH_STATUS.UNMATCHED, credited: null };
     }
 
     if (candidates.length > 1) {
@@ -118,7 +122,7 @@ export async function processIncomingSms(input: IncomingSms): Promise<SmsProcess
         { ...commonFields, matchStatus: SMS_MATCH_STATUS.AMBIGUOUS },
         trx
       );
-      return SMS_MATCH_STATUS.AMBIGUOUS;
+      return { matchStatus: SMS_MATCH_STATUS.AMBIGUOUS, credited: null };
     }
 
     const topup = candidates[0]!;
@@ -153,8 +157,25 @@ export async function processIncomingSms(input: IncomingSms): Promise<SmsProcess
       trx
     );
 
-    return SMS_MATCH_STATUS.MATCHED;
+    // `walletTx` is null when the idempotency key already existed, i.e. this SMS was
+    // already processed — the customer was told the first time, so stay quiet.
+    return {
+      matchStatus: SMS_MATCH_STATUS.MATCHED,
+      credited: walletTx
+        ? {
+            userId: topup.user_id,
+            amount: parsed.amount.toFixed(3),
+            newBalance: Number(walletTx.balance_after).toFixed(3),
+          }
+        : null,
+    };
   });
+
+  // Only now that the credit is committed. Fire-and-forget: a push failure must not turn
+  // a successful top-up into a failed webhook, which Libyana's forwarder would retry.
+  if (credited) {
+    void notifications.notifyWalletCredited(credited.userId, credited.amount, credited.newBalance);
+  }
 
   return { eventId, matchStatus };
 }

@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly Sayeh database backup
+
+[Timer]
+# 02:30 UTC — after midnight in Libya (UTC+2) but before the morning traffic.
+OnCalendar=*-*-* 02:30:00
+# If the server was off at 02:30, back up as soon as it comes back rather than skipping
+# the day entirely.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

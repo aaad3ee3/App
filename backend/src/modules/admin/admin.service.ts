@@ -10,6 +10,7 @@ import * as ordersService from "../orders/orders.service";
 import * as smsRepo from "../sms/sms.repository";
 import * as topupsRepo from "../topups/topups.repository";
 import * as walletRepo from "../wallet/wallet.repository";
+import * as notifications from "../notifications/notifications.service";
 import * as adminRepo from "./admin.repository";
 
 export async function listSmsEvents(matchStatus: string | undefined, page: number, pageSize: number) {
@@ -220,11 +221,14 @@ export async function listOrdersByStatus(status: OrderStatus, page: number, page
 export async function resolveAmbiguousOrderCompleted(adminId: string, orderId: string, note: string) {
   const order = await ordersService.adminMarkAmbiguousAsCompleted(orderId, note);
   await adminRepo.logAction({ adminUserId: adminId, action: "mark_order_completed", targetType: "order", targetId: orderId, details: { note } });
+  void notifications.notifyOrderCompleted(order.user_id, "طلبك", Boolean(order.supplier_response));
   return order;
 }
 
 export async function refundOrderAdmin(adminId: string, orderId: string, note: string) {
   const order = await ordersService.adminRefundOrder(orderId, note);
   await adminRepo.logAction({ adminUserId: adminId, action: "refund_order", targetType: "order", targetId: orderId, details: { note } });
+  // The customer has been waiting on a stuck order; tell them their money is back.
+  void notifications.notifyOrderRefunded(order.user_id, Number(order.total_price).toFixed(3));
   return order;
 }

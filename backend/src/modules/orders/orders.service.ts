@@ -11,6 +11,7 @@ import { PlusApiError } from "../../adapters/smm/plus.client";
 import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interface";
 import * as catalogRepo from "../catalog/catalog.repository";
 import * as walletRepo from "../wallet/wallet.repository";
+import * as notifications from "../notifications/notifications.service";
 import * as ordersRepo from "./orders.repository";
 
 export interface OrderAdapters {
@@ -133,7 +134,7 @@ export async function createOrder(
     await ordersRepo.markProcessing(orderId, debitTx.id, trx);
   });
 
-  await fulfillOrder(orderId, userId, product, { quantity, targetLink, totalPrice }, adapters);
+  await fulfillOrder(orderId, userId, product, { quantity, targetLink, totalPrice, productName: product.name }, adapters);
 
   return (await ordersRepo.findById(orderId))!;
 }
@@ -142,13 +143,16 @@ async function fulfillOrder(
   orderId: string,
   userId: string,
   product: { kind: "giftcard" | "smm"; supplier_product_ref: string },
-  details: { quantity: number; targetLink: string | null; totalPrice: number },
+  details: { quantity: number; targetLink: string | null; totalPrice: number; productName: string },
   adapters: OrderAdapters
 ): Promise<void> {
   try {
     if (product.kind === "giftcard") {
       const redemption = await adapters.giftCard.purchase({ productId: product.supplier_product_ref });
       await ordersRepo.markCompleted(orderId, redemption, null);
+      // Notifications are deliberately sent AFTER the order state is durable, and are
+      // never awaited in a way that can fail the order — see notifications.service.ts.
+      void notifications.notifyOrderCompleted(userId, details.productName, Boolean(redemption?.cardCode));
     } else {
       const result = await adapters.smm.addOrder({
         supplierServiceId: product.supplier_product_ref,
@@ -156,15 +160,20 @@ async function fulfillOrder(
         quantity: details.quantity,
       });
       await ordersRepo.attachSupplierOrderRef(orderId, result.orderNumber, result);
-      // Status stays 'processing' — SMM orders complete asynchronously, see poll-smm-orders.job.ts.
+      // Status stays 'processing' — SMM orders complete asynchronously, see
+      // poll-smm-orders.job.ts, which sends the completion notification.
     }
   } catch (err) {
     if (err instanceof LibyaPlayApiError || err instanceof PlusApiError) {
       await refundOrder(orderId, userId, details.totalPrice, `supplier_error: ${err.message}`);
       await ordersRepo.markFailed(orderId, err.message);
+      void notifications.notifyOrderRefunded(userId, details.totalPrice.toFixed(3));
     } else {
       const message = err instanceof Error ? err.message : String(err);
       await ordersRepo.markAmbiguous(orderId, message);
+      // Tell the customer their money is accounted for. Without this the wallet is
+      // debited and nothing visibly happens, which reads exactly like being robbed.
+      void notifications.notifyOrderUnderReview(userId);
     }
   }
 }

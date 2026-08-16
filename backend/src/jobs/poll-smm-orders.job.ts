@@ -1,3 +1,4 @@
+import * as notifications from "../modules/notifications/notifications.service";
 import { PlusAdapter } from "../adapters/smm/plus.adapter";
 import { PlusApiError } from "../adapters/smm/plus.client";
 import * as ordersRepo from "../modules/orders/orders.repository";
@@ -43,9 +44,13 @@ export async function pollSmmOrders(adapter: PlusAdapter = new PlusAdapter()): P
 
       if (classification === "completed") {
         await ordersRepo.markCompleted(order.id, status, order.supplier_order_ref);
+        // This is the moment the customer has been waiting for — an SMM order can take
+        // hours, so without a push they have to keep reopening the app to check.
+        void notifications.notifyOrderCompleted(order.user_id, "طلبك", false);
         completed += 1;
       } else if (classification === "failed") {
         await ordersRepo.markAmbiguous(order.id, `Plus reported a terminal failure status: "${status.status}"`);
+        void notifications.notifyOrderUnderReview(order.user_id);
         flaggedFailed += 1;
       } else {
         await ordersRepo.attachSupplierOrderRef(order.id, order.supplier_order_ref, status);

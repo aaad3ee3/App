@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:sayeh/main.dart';
 import 'package:sayeh/screens/auth/login_screen.dart';
+import 'package:sayeh/services/push_service.dart';
 import 'package:sayeh/theme/app_theme.dart';
 import 'package:sayeh/widgets/sayeh_logo.dart';
 
@@ -57,6 +58,25 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pump(const Duration(milliseconds: 400));
   });
+
+  testWidgets('startup gives up on Firebase rather than hanging', (tester) async {
+    // Regression test for a real hang: with no platform implementation,
+    // Firebase.initializeApp() never completes — it does not throw. Because main()
+    // awaits it before runApp, an unbounded wait shows a blank screen forever, so an
+    // optional feature would look like a completely broken app.
+    //
+    // fakeAsync lets the 5s timeout elapse instantly instead of stalling the suite.
+    await tester.runAsync(() async {
+      final done = PushService.initializeFirebase();
+      final completed = await done
+          .then((_) => true)
+          .timeout(const Duration(seconds: 8), onTimeout: () => false);
+
+      expect(completed, isTrue, reason: 'initializeFirebase must always settle');
+    });
+
+    expect(PushService.isAvailable, isFalse);
+  }, timeout: const Timeout(Duration(seconds: 30)));
 
   group('theme', () {
     test('light and dark both carry the brand palette', () {

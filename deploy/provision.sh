@@ -110,6 +110,14 @@ chown -R "$APP_USER":"$APP_USER" "${APP_DIR}/admin/dist"
 chmod -R o+rX "${APP_DIR}/admin/dist"
 nginx -t && systemctl reload nginx
 
+echo "==> Installing nightly database backup"
+mkdir -p "${APP_ROOT}/backups"
+chmod 700 "${APP_ROOT}/backups"
+sed -e "s#__APP_DIR__#${APP_DIR}#g" "$APP_DIR/deploy/sayeh-backup.service" > /etc/systemd/system/sayeh-backup.service
+cp "$APP_DIR/deploy/sayeh-backup.timer" /etc/systemd/system/sayeh-backup.timer
+systemctl daemon-reload
+systemctl enable --now sayeh-backup.timer
+
 echo "==> Configuring firewall"
 ufw allow OpenSSH
 ufw allow 'Nginx Full'

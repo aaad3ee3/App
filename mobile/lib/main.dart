@@ -3,9 +3,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_store.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialises Firebase if it is configured for this build. Awaited so that a session
+  // restored on the splash screen can register its device token immediately; the call
+  // swallows its own failures, so an app built without Firebase still starts normally.
+  await PushService.initializeFirebase();
+
   runApp(const SayehApp());
 }
 

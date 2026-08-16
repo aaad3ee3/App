@@ -13,6 +13,7 @@ import smsRoutes from "./modules/sms/sms.routes";
 import adminRoutes from "./modules/admin/admin.routes";
 import catalogRoutes from "./modules/catalog/catalog.routes";
 import ordersRoutes from "./modules/orders/orders.routes";
+import notificationsRoutes from "./modules/notifications/notifications.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -67,6 +68,7 @@ export function buildApp() {
   app.register(adminRoutes, { prefix: "/api/v1/admin" });
   app.register(catalogRoutes, { prefix: "/api/v1/catalog" });
   app.register(ordersRoutes, { prefix: "/api/v1/orders" });
+  app.register(notificationsRoutes, { prefix: "/api/v1/notifications" });
 
   return app;
 }

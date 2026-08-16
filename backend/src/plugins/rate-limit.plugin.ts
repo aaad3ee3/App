@@ -3,6 +3,7 @@ import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { env } from "../config/env";
 import { sha256Hex } from "../lib/crypto";
+import { getRedis } from "../lib/redis";
 
 /**
  * Global rate-limit plugin. Per-route overrides (login, register, webhook, orders,
@@ -17,16 +18,32 @@ import { sha256Hex } from "../lib/crypto";
  * `onRequest`. Body parsing therefore happens before the limit check, which is safe
  * because `bodyLimit` (config/env.ts MAX_BODY_BYTES) caps bodies at 64 KB.
  *
- * In-memory store, fine for a single instance. Move to a Redis store
- * (@fastify/rate-limit supports a `redis` client option) before running more than one
- * API instance, otherwise limits are tracked per-instance instead of globally.
+ * Counts live in Redis when REDIS_URL is set, and in process memory otherwise. The
+ * in-memory store is correct for exactly one instance; with two or more, each process
+ * keeps its own tally and the effective limit silently multiplies by the instance count.
  */
 export default fp(async function rateLimitPlugin(app: FastifyInstance) {
+  const redis = getRedis();
+
+  if (redis) {
+    app.log.info("rate limiting backed by Redis (shared across instances)");
+  } else {
+    app.log.info("rate limiting held in process memory (single-instance only)");
+  }
+
   await app.register(rateLimit, {
     global: true,
     hook: "preHandler",
     max: env.RATE_LIMIT_GLOBAL_MAX,
     timeWindow: env.RATE_LIMIT_GLOBAL_WINDOW_MS,
+    redis: redis ?? undefined,
+    // Namespaced so a Redis instance shared with anything else cannot collide with, or
+    // be wiped by, another application's keys.
+    nameSpace: "sayeh-rl:",
+    // Fail open if Redis is unreachable. The alternative — rejecting every request when
+    // the limiter's backing store is down — turns a Redis blip into a full outage, which
+    // is a worse failure than briefly unmetered traffic that the app can still handle.
+    skipOnError: true,
     // Fastify's default handler returns the library's own message shape; route everything
     // through our error envelope instead so clients only ever parse one error format.
     errorResponseBuilder: (_request, context) => ({
