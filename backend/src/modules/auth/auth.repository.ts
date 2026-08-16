@@ -6,17 +6,37 @@ export function findUserByEmail(email: string, trx: Knex | Knex.Transaction = db
   return trx<UserRow>("users").where({ email }).first();
 }
 
+export function findUserByPhone(phone: string, trx: Knex | Knex.Transaction = db): Promise<UserRow | undefined> {
+  return trx<UserRow>("users").where({ phone }).first();
+}
+
+export async function updatePassword(userId: string, passwordHash: string): Promise<void> {
+  await db("users").where({ id: userId }).update({ password_hash: passwordHash, updated_at: new Date() });
+}
+
 export function findUserById(id: string, trx: Knex | Knex.Transaction = db): Promise<UserRow | undefined> {
   return trx<UserRow>("users").where({ id }).first();
 }
 
 export async function createUserWithWallet(
-  input: { email: string; passwordHash: string; fullName: string | null },
+  input: {
+    phone: string;
+    email: string | null;
+    passwordHash: string;
+    fullName: string | null;
+    phoneVerifiedAt: Date | null;
+  },
   currency: string
 ): Promise<UserRow> {
   return db.transaction(async (trx) => {
     const [user] = await trx<UserRow>("users")
-      .insert({ email: input.email, password_hash: input.passwordHash, full_name: input.fullName })
+      .insert({
+        phone: input.phone,
+        email: input.email,
+        password_hash: input.passwordHash,
+        full_name: input.fullName,
+        phone_verified_at: input.phoneVerifiedAt,
+      })
       .returning("*");
     if (!user) throw new Error("Failed to create user");
 
@@ -103,4 +123,50 @@ export function resetFailedLogin(userId: string): Promise<number> {
 
 export function isLocked(user: Pick<UserRow, "locked_until">): boolean {
   return Boolean(user.locked_until && user.locked_until.getTime() > Date.now());
+}
+
+export async function getWalletBalance(userId: string): Promise<number> {
+  const wallet = await db("wallets").where({ user_id: userId }).first<{ balance: string } | undefined>();
+  return Number(wallet?.balance ?? 0);
+}
+
+/**
+ * Orders that are neither finished nor settled. `ambiguous_error` counts: the money is
+ * committed and an admin still has to decide whether to complete or refund it.
+ */
+export async function countUnsettledOrders(userId: string): Promise<number> {
+  const rows = await db("orders")
+    .where({ user_id: userId })
+    .whereIn("status", ["pending", "processing", "ambiguous_error"])
+    .count<{ count: string }[]>("id as count");
+  return Number(rows[0]?.count ?? 0);
+}
+
+/**
+ * Anonymizes the account rather than deleting the row.
+ *
+ * `orders.user_id` and `wallet_transactions.user_id` are ON DELETE RESTRICT because the
+ * ledger records real money movements and has to survive. This clears every piece of
+ * personal data, frees the phone number for re-registration (the unique index ignores
+ * nulls), and makes the account permanently unusable — while the ledger keeps pointing
+ * at an account with no identity attached.
+ */
+export async function anonymizeUser(userId: string): Promise<void> {
+  await db.transaction(async (trx) => {
+    await trx("users").where({ id: userId }).update({
+      phone: null,
+      phone_verified_at: null,
+      email: null,
+      full_name: null,
+      // Argon2 never produces this, so no password can ever verify against it again.
+      password_hash: "deleted",
+      status: "deleted",
+      deleted_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    // Cut off access and notifications immediately.
+    await trx("sessions").where({ user_id: userId }).whereNull("revoked_at").update({ revoked_at: new Date() });
+    await trx("device_tokens").where({ user_id: userId }).del();
+  });
 }

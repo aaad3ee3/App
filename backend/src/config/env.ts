@@ -80,6 +80,27 @@ const envSchema = z.object({
   PLUS_BASE_URL: z.string().default("https://hamadh.net/api/v2"),
   PLUS_API_KEY: z.string().optional(),
 
+  // Outbound SMS gateway, used for phone verification and password-reset codes.
+  // Libya has no mainstream programmable-SMS provider, so this is intentionally generic:
+  // point it at whatever gateway you run (commonly an Android SMS-gateway app on the same
+  // phone that forwards incoming messages). With no URL set, codes are logged instead of
+  // sent — fine locally, refused in production.
+  SMS_GATEWAY_URL: z.string().url().optional(),
+  SMS_GATEWAY_API_KEY: z.string().optional(),
+  // Field names vary by gateway; these defaults suit the most common ones.
+  SMS_GATEWAY_TO_FIELD: z.string().default("to"),
+  SMS_GATEWAY_TEXT_FIELD: z.string().default("message"),
+
+  // Phone verification codes.
+  OTP_TTL_MINUTES: z.coerce.number().int().positive().default(10),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  // Per phone number, so flooding one victim with codes costs an attacker more than
+  // rotating IP addresses.
+  OTP_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(5),
+
+  // Shown in-app as the support contact. International format without '+', e.g. 218911234567.
+  SUPPORT_WHATSAPP: z.string().optional(),
+
   // Push notifications (Firebase Cloud Messaging). All three are optional: with any of
   // them missing the app runs normally and simply sends nothing, which keeps local
   // development and the test suite free of Firebase credentials.
@@ -154,6 +175,23 @@ function assertProductionSafety(cfg: Env): void {
     problems.push(
       "TRUST_PROXY_HOPS is 0 — set it to the number of proxies in front of this process " +
         "(1 for the bundled nginx setup), otherwise every client shares one rate-limit bucket"
+    );
+  }
+
+  // Without a gateway the SMS sender falls back to printing codes to the log. In
+  // production that means every verification and password-reset code is readable by
+  // anyone with log access, and no customer ever actually receives one.
+  if (!cfg.SMS_GATEWAY_URL) {
+    problems.push(
+      "SMS_GATEWAY_URL must be set — without it, phone verification and password-reset " +
+        "codes are written to the server log instead of being delivered"
+    );
+  }
+
+  if (!cfg.SUPPORT_WHATSAPP) {
+    problems.push(
+      "SUPPORT_WHATSAPP must be set — an order held for manual review leaves a customer's " +
+        "money committed with no way to reach anyone"
     );
   }
 

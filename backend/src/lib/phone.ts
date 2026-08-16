@@ -35,3 +35,27 @@ export function normalizeLibyanPhone(raw: string): string | null {
 
   return `0${digits}`;
 }
+
+/**
+ * Libyana's mobile prefixes. Al-Madar's (094/095) are deliberately absent: the whole
+ * payment pipeline is built on Libyana transfers, so an Al-Madar number can neither fund
+ * a wallet nor receive our verification codes. Accepting one would let someone register
+ * an account they can never top up or recover.
+ */
+const LIBYANA_PREFIXES = ["091", "092"] as const;
+
+export function isLibyanaNumber(normalized: string): boolean {
+  return LIBYANA_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+/**
+ * Normalizes and accepts only Libyana numbers. Use this everywhere a customer supplies
+ * their own number — registration, password reset, and the top-up sender — as opposed to
+ * `normalizeLibyanPhone`, which stays permissive for parsing whatever arrives in an
+ * incoming SMS.
+ */
+export function normalizeLibyanaPhone(raw: string): string | null {
+  const normalized = normalizeLibyanPhone(raw);
+  if (!normalized) return null;
+  return isLibyanaNumber(normalized) ? normalized : null;
+}

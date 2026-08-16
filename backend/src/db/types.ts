@@ -1,6 +1,10 @@
 export interface UserRow {
   id: string;
-  email: string;
+  /** Primary identity. Nullable only for rows created before phone auth shipped. */
+  phone: string | null;
+  phone_verified_at: Date | null;
+  /** Optional since phone became the identity — many customers have no email. */
+  email: string | null;
   password_hash: string;
   full_name: string | null;
   is_admin: boolean;
