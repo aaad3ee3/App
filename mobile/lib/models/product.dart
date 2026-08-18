@@ -34,4 +34,9 @@ class StoreProduct {
       );
 
   double get priceValue => double.tryParse(price) ?? 0;
+
+  /// Postgres returns NUMERIC(14,4) padded to four decimals ("9.2900"), which reads like
+  /// a rounding artifact on a price tag. Sync stores prices rounded to two decimals, so
+  /// trimming to two here shows exactly what the customer will be charged.
+  String get formattedPrice => priceValue.toStringAsFixed(2);
 }

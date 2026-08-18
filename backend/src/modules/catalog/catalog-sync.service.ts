@@ -5,8 +5,16 @@ import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interfa
 import { categorizePlusService } from "./plus-categorization";
 import * as catalogRepo from "./catalog.repository";
 
-function applyMarkup(cost: number): number {
-  return Math.round(cost * (1 + env.CATALOG_MARKUP_PERCENT) * 10000) / 10000;
+/**
+ * Applies our margin and lands on a price a shop can actually display.
+ *
+ * Rounded to two decimals rather than the column's four: a shelf price of "9.2902 LYD"
+ * looks like a bug to a customer, and any display that tidies it up would then disagree
+ * with the amount actually debited. Rounding *up* keeps the realized margin at or above
+ * the configured one — never below it — at a cost of well under a dirham per item.
+ */
+export function applyMarkup(cost: number): number {
+  return Math.ceil(cost * (1 + env.CATALOG_MARKUP_PERCENT) * 100) / 100;
 }
 
 export interface SyncResult {

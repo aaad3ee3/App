@@ -8,6 +8,7 @@ import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/money.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
   const OrdersHistoryScreen({super.key});
@@ -132,7 +133,7 @@ class _OrderTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Text('${order.totalPrice} LYD', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('${formatLydString(order.totalPrice)} LYD', style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -158,7 +159,7 @@ class _OrderDetailDialog extends StatelessWidget {
         children: [
           _row('الحالة', status.label),
           _row('الكمية', '${order.quantity}'),
-          _row('الإجمالي', '${order.totalPrice} LYD'),
+          _row('الإجمالي', '${formatLydString(order.totalPrice)} LYD'),
           if (order.targetLink != null) _row('الرابط', order.targetLink!),
           if (order.cardCode != null) ...[
             const SizedBox(height: 8),

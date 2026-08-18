@@ -6,6 +6,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
+import '../../utils/money.dart';
 
 class SmmPurchaseScreen extends StatefulWidget {
   const SmmPurchaseScreen({super.key, required this.product});
@@ -97,7 +98,7 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
           Text(widget.product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
-            '${widget.product.price} ${widget.product.currency} لكل 1000 — الكمية من $_minQuantity إلى $_maxQuantity',
+            '${widget.product.formattedPrice} ${widget.product.currency} لكل 1000 — الكمية من $_minQuantity إلى $_maxQuantity',
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
           const SizedBox(height: 20),
@@ -131,7 +132,7 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
                 children: [
                   const Text('الإجمالي المتوقع'),
                   Text(
-                    '${_computedTotal.toStringAsFixed(3)} LYD',
+                    '${formatLyd(_computedTotal)} LYD',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -191,7 +192,7 @@ class _SmmResultView extends StatelessWidget {
         const Text('تم إرسال طلبك', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
-          'الكمية: ${order.quantity} — الإجمالي: ${order.totalPrice} LYD',
+          'الكمية: ${order.quantity} — الإجمالي: ${formatLydString(order.totalPrice)} LYD',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey.shade600),
         ),

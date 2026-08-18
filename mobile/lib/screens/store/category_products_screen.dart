@@ -5,8 +5,14 @@ import '../../models/product.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
+import '../../utils/arabic_text.dart';
+import '../../widgets/product_tile.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
+
+/// How a category's products are ordered. Cheapest-first is the default because that is
+/// the question customers actually ask of a list of top-up amounts.
+enum ProductSort { priceAsc, priceDesc, name }
 
 class CategoryProductsScreen extends StatefulWidget {
   const CategoryProductsScreen({super.key, required this.category});
@@ -19,7 +25,10 @@ class CategoryProductsScreen extends StatefulWidget {
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   late final CatalogService _catalogService;
+  final _filterController = TextEditingController();
   List<StoreProduct> _products = [];
+  ProductSort _sort = ProductSort.priceAsc;
+  String _filter = '';
   bool _loading = true;
   String? _error;
 
@@ -30,6 +39,12 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
@@ -38,6 +53,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       setState(() {
         _products = products;
         _loading = false;
+        _error = null;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -46,6 +62,21 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// Filtering and sorting happen on the device: the whole category is already loaded, so
+  /// a round trip per keystroke would only add latency to a list of a few dozen rows.
+  List<StoreProduct> get _visibleProducts {
+    final filtered = _filter.trim().isEmpty
+        ? List<StoreProduct>.from(_products)
+        : _products.where((p) => matchesSearch(p.name, _filter)).toList();
+
+    filtered.sort(switch (_sort) {
+      ProductSort.priceAsc => (a, b) => a.priceValue.compareTo(b.priceValue),
+      ProductSort.priceDesc => (a, b) => b.priceValue.compareTo(a.priceValue),
+      ProductSort.name => (a, b) => a.name.compareTo(b.name),
+    });
+    return filtered;
   }
 
   void _openProduct(StoreProduct product) {
@@ -65,77 +96,105 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
-              : _products.isEmpty
-                  ? Center(child: Text('لا توجد منتجات متاحة', style: TextStyle(color: Colors.grey.shade600)))
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _products.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => _ProductTile(
-                          product: _products[index],
-                          pricePer1000: widget.category.isGiftcard == false,
-                          onTap: () => _openProduct(_products[index]),
-                        ),
-                      ),
-                    ),
+              ? _ErrorState(message: _error!, onRetry: _load)
+              : Column(
+                  children: [
+                    // Hidden for short lists — a search box above four items is clutter.
+                    if (_products.length > 6) _buildControls(context),
+                    Expanded(child: _buildList()),
+                  ],
+                ),
     );
   }
-}
 
-class _ProductTile extends StatelessWidget {
-  const _ProductTile({required this.product, required this.pricePer1000, required this.onTap});
-
-  final StoreProduct product;
-  final bool pricePer1000;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: product.image != null
-                      ? Image.network(
-                          product.image!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _placeholder(context),
-                        )
-                      : _placeholder(context),
-                ),
+  Widget _buildControls(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _filterController,
+              onChanged: (value) => setState(() => _filter = value),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'ابحث داخل ${widget.category.name}',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: _filter.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        tooltip: 'مسح',
+                        onPressed: () {
+                          _filterController.clear();
+                          setState(() => _filter = '');
+                        },
+                      ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                pricePer1000
-                    ? '${product.price} ${product.currency}/1000'
-                    : '${product.price} ${product.currency}',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<ProductSort>(
+            initialValue: _sort,
+            tooltip: 'الترتيب',
+            icon: const Icon(Icons.swap_vert_rounded),
+            onSelected: (value) => setState(() => _sort = value),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: ProductSort.priceAsc, child: Text('الأرخص أولاً')),
+              PopupMenuItem(value: ProductSort.priceDesc, child: Text('الأغلى أولاً')),
+              PopupMenuItem(value: ProductSort.name, child: Text('حسب الاسم')),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _placeholder(BuildContext context) => Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        child: Icon(Icons.image_outlined, color: Colors.grey.shade500),
+  Widget _buildList() {
+    final products = _visibleProducts;
+
+    if (products.isEmpty) {
+      return Center(
+        child: Text(
+          _filter.trim().isEmpty ? 'لا توجد منتجات متاحة' : 'لا توجد نتائج لـ "${_filter.trim()}"',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
       );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: products.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) => ProductTile(
+          product: products[index],
+          onTap: () => _openProduct(products[index]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+        ],
+      ),
+    );
+  }
 }

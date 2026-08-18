@@ -1,7 +1,16 @@
 import type { Knex } from "knex";
 import { db } from "../../db/knex";
 import { sanitizeImageUrl, sanitizeName, sanitizeText } from "../../lib/sanitize";
+import { escapeLikePattern } from "../../lib/search";
 import type { CategoryRow, ProductKind, ProductRow, Supplier } from "../../db/types";
+
+/**
+ * The indexed expressions from the catalog-search migration. Written exactly as the index
+ * defines them — any difference, even whitespace inside the call, and Postgres stops
+ * recognising the expression as indexable and falls back to a sequential scan.
+ */
+const NORMALIZED = "sayeh_search_normalize(p.name)";
+const NORMALIZED_CATEGORY = "sayeh_search_normalize(c.name)";
 
 export interface UpsertCategoryInput {
   kind: ProductKind;
@@ -109,6 +118,68 @@ export function listAvailableProductsByCategory(categoryId: string): Promise<Pro
 
 export function getProductById(id: string, trx: Knex | Knex.Transaction = db): Promise<ProductRow | undefined> {
   return trx<ProductRow>("products").where({ id }).first();
+}
+
+export interface ProductSearchRow extends ProductRow {
+  category_name: string;
+  category_kind: ProductKind;
+}
+
+export interface SearchProductsInput {
+  /**
+   * One entry per word the customer typed, each holding that word and its aliases —
+   * already normalized and LIKE-escaped by tokenizeQuery. Groups are ANDed, alternatives
+   * within a group are ORed.
+   */
+  termGroups: string[][];
+  normalizedQuery: string;
+  kind?: ProductKind;
+  limit: number;
+}
+
+/**
+ * Full-catalog product search.
+ *
+ * Matches the category name as well as the product name, because that is how customers
+ * actually search: a product row is called "60 UC", and nothing but its category says
+ * "PUBG". Terms are ANDed (each one must appear somewhere) so that adding a word narrows
+ * the result set, which is what typing more is meant to do.
+ *
+ * Ordering puts a product whose own name starts with the query first, then products that
+ * merely contain it, then category-only matches — otherwise a cheap unrelated item wins
+ * on price alone and buries the thing the customer typed.
+ */
+export async function searchProducts(input: SearchProductsInput): Promise<ProductSearchRow[]> {
+  const query = db<ProductRow>("products as p")
+    .join("categories as c", "c.id", "p.category_id")
+    .where("p.available", true)
+    .andWhere("c.enabled", true)
+    .select("p.*", "c.name as category_name", "c.kind as category_kind");
+
+  if (input.kind) query.andWhere("p.kind", input.kind);
+
+  for (const group of input.termGroups) {
+    query.andWhere((builder) => {
+      for (const term of group) {
+        builder
+          .orWhereRaw(`${NORMALIZED} LIKE ? ESCAPE '\\'`, [`%${term}%`])
+          .orWhereRaw(`${NORMALIZED_CATEGORY} LIKE ? ESCAPE '\\'`, [`%${term}%`]);
+      }
+    });
+  }
+
+  const escapedQuery = escapeLikePattern(input.normalizedQuery);
+  return query
+    .orderByRaw(
+      `CASE
+         WHEN ${NORMALIZED} LIKE ? ESCAPE '\\' THEN 0
+         WHEN ${NORMALIZED} LIKE ? ESCAPE '\\' THEN 1
+         WHEN ${NORMALIZED_CATEGORY} LIKE ? ESCAPE '\\' THEN 2
+         ELSE 3
+       END, p.sell_price ASC, p.name ASC`,
+      [`${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`]
+    )
+    .limit(input.limit) as unknown as Promise<ProductSearchRow[]>;
 }
 
 export async function listAllCategoriesAdmin(): Promise<CategoryRow[]> {

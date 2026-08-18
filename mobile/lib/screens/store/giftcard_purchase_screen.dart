@@ -33,7 +33,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('تأكيد الشراء'),
-        content: Text('راح يتم خصم ${widget.product.price} ${widget.product.currency} من محفظتك مقابل "${widget.product.name}". متأكد؟'),
+        content: Text('راح يتم خصم ${widget.product.formattedPrice} ${widget.product.currency} من محفظتك مقابل "${widget.product.name}". متأكد؟'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('تأكيد')),
@@ -107,7 +107,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
               children: [
                 const Text('السعر'),
                 Text(
-                  '${widget.product.price} ${widget.product.currency}',
+                  '${widget.product.formattedPrice} ${widget.product.currency}',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
               ],

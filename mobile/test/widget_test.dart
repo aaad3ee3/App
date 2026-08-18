@@ -6,6 +6,8 @@ import 'package:sayeh/main.dart';
 import 'package:sayeh/screens/auth/login_screen.dart';
 import 'package:sayeh/services/push_service.dart';
 import 'package:sayeh/theme/app_theme.dart';
+import 'package:sayeh/utils/arabic_text.dart';
+import 'package:sayeh/utils/money.dart';
 import 'package:sayeh/widgets/phone_field.dart';
 import 'package:sayeh/widgets/sayeh_logo.dart';
 
@@ -124,6 +126,44 @@ void main() {
       for (final bad in ['', '123', '09212345', '0812345678']) {
         expect(PhoneField.validate(bad), isNotNull, reason: '"$bad" must be rejected');
       }
+    });
+  });
+
+  group('Arabic search matching', () {
+    // Must agree with normalizeSearchText in backend/src/lib/search.ts: a product the
+    // customer found through server search has to stay findable when they type the same
+    // words into the on-device filter.
+    test('folds the spellings customers use interchangeably', () {
+      expect(matchesSearch('ألعاب فيديو', 'العاب'), isTrue);
+      expect(matchesSearch('بطاقة جوجل بلاي', 'بطاقه'), isTrue);
+      expect(matchesSearch('PUBG Mobile', 'pubg'), isTrue);
+    });
+
+    test('needs every word to match, so typing more narrows the list', () {
+      expect(matchesSearch('325 UC ببجي', '325 uc'), isTrue);
+      expect(matchesSearch('60 UC ببجي', '325 uc'), isFalse);
+    });
+
+    test('an empty query matches everything', () {
+      expect(matchesSearch('أي منتج', '   '), isTrue);
+    });
+  });
+
+  group('money formatting', () {
+    test('drops the padding Postgres adds to NUMERIC(14,4)', () {
+      // "9.2900" on a price tag reads as a rounding bug, not a price.
+      expect(formatLydString('9.2900'), '9.29');
+      expect(formatLydString('232.0000'), '232.00');
+    });
+
+    test('keeps the dirham when an SMM total actually lands there', () {
+      // A per-1000 rate times a quantity genuinely produces thousandths.
+      expect(formatLyd(0.171), '0.171');
+      expect(formatLyd(1.7), '1.70');
+    });
+
+    test('never swallows an amount it cannot parse', () {
+      expect(formatLydString('not-a-number'), 'not-a-number');
     });
   });
 

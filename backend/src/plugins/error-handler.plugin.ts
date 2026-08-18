@@ -45,7 +45,10 @@ export default fp(async function errorHandlerPlugin(app: FastifyInstance) {
     }
 
     request.log.error({ err: error }, "unhandled_error");
-    reply.status(500).send({ error: { code: "internal_error", message: "Something went wrong" } });
+    // Arabic, because the mobile app shows the server's message to the customer verbatim
+    // — an English "Something went wrong" in the middle of an Arabic screen reads as a
+    // crash. The detail stays in the log above; the customer only needs to know to retry.
+    reply.status(500).send({ error: { code: "internal_error", message: "حدث خطأ غير متوقع، حاول مرة أخرى بعد قليل." } });
   });
 
   app.setNotFoundHandler((_request, reply) => {
