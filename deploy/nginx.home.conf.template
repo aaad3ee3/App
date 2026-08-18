@@ -1,0 +1,16 @@
+# Home-server site.
+#
+# Bound to localhost only: the machine has no public IP and no ports are forwarded on the
+# router. Tailscale Funnel holds the public HTTPS listener, terminates TLS with a real
+# certificate for the machine's *.ts.net name, and forwards here over the loopback. So
+# there is no certbot, no :443 block, and nothing of this is reachable from the LAN.
+server {
+    listen 127.0.0.1:8080;
+    server_name _;
+
+    # Logs the full X-Forwarded-For chain, which is the only way to confirm
+    # TRUST_PROXY_HOPS is right — see deploy/home/README.md ("التحقق من عدد الوسطاء").
+    access_log /var/log/nginx/sayeh-access.log sayeh_xff;
+
+    include /etc/nginx/snippets/sayeh-locations.conf;
+}

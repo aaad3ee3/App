@@ -1,5 +1,10 @@
 # Deployment (single VPS, Ubuntu)
 
+> **No VPS, or cannot pay for one?** [`home/README.md`](home/README.md) covers running
+> the same stack on a machine you already own, with Tailscale Funnel providing a stable
+> public HTTPS address — no public IP, no port forwarding, no card. Same scripts and the
+> same backup/restore path, so moving to a VPS later is a restore, not a rebuild.
+
 Two scripts:
 
 - **`provision.sh`** — run **once** on a fresh server. Installs Node.js, PostgreSQL,

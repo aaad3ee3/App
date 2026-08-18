@@ -1,68 +1,8 @@
+# Public VPS site. certbot rewrites this to add the :443 server block and the redirect.
 server {
     listen 80;
     listen [::]:80;
     server_name __DOMAIN__;
 
-    root __APP_DIR__/admin/dist;
-    index index.html;
-
-    # Nothing this site accepts is large; the API enforces its own 64 KB body limit and
-    # the admin dashboard only ever POSTs small JSON.
-    client_max_body_size 256k;
-
-    # Don't advertise the exact nginx version in responses.
-    server_tokens off;
-
-    # NOTE: every location below re-includes security-headers.conf. That repetition is
-    # required, not accidental — see the comment at the top of that file.
-    include /etc/nginx/snippets/sayeh-security-headers.conf;
-
-    # Reverse proxy to the backend. Path is passed through unchanged since the backend's
-    # own routes already live under /api/v1/... (see backend/src/app.ts).
-    location /api/ {
-        include /etc/nginx/snippets/sayeh-security-headers.conf;
-
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # The backend trusts exactly TRUST_PROXY_HOPS=1 hop, so it reads the LAST entry in
-        # X-Forwarded-For — the address nginx appends here. A client that sends its own
-        # X-Forwarded-For therefore cannot forge the address rate limits are keyed on.
-
-        proxy_connect_timeout 5s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 30s;
-    }
-
-    # Privacy policy and terms. These need stable public URLs because the Google Play and
-    # App Store listings link to them directly, and a store review fails on a dead link.
-    location /legal/ {
-        include /etc/nginx/snippets/sayeh-security-headers.conf;
-        alias __APP_DIR__/legal/;
-        try_files $uri $uri/ =404;
-    }
-
-    # Hashed Vite build assets are content-addressed, so they can be cached hard.
-    location /assets/ {
-        include /etc/nginx/snippets/sayeh-security-headers.conf;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
-    }
-
-    # Admin dashboard SPA (client-side routing). index.html itself must never be cached,
-    # otherwise a deploy leaves browsers pinned to a stale asset manifest.
-    location / {
-        include /etc/nginx/snippets/sayeh-security-headers.conf;
-        add_header Cache-Control "no-cache" always;
-        try_files $uri /index.html;
-    }
-
-    # Version-control and editor droppings should never be reachable if one ever lands in
-    # the web root.
-    location ~ /\. {
-        deny all;
-    }
+    include /etc/nginx/snippets/sayeh-locations.conf;
 }

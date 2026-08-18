@@ -101,7 +101,9 @@ systemctl enable store-backend
 echo "==> Configuring Nginx (HTTP only for now — certbot adds HTTPS below)"
 mkdir -p /etc/nginx/snippets
 cp "$APP_DIR/deploy/security-headers.conf" /etc/nginx/snippets/sayeh-security-headers.conf
-sed -e "s#__DOMAIN__#${DOMAIN}#g" -e "s#__APP_DIR__#${APP_DIR}#g" \
+sed -e "s#__APP_DIR__#${APP_DIR}#g" \
+  "$APP_DIR/deploy/nginx-locations.conf" > /etc/nginx/snippets/sayeh-locations.conf
+sed -e "s#__DOMAIN__#${DOMAIN}#g" \
   "$APP_DIR/deploy/nginx.conf.template" > /etc/nginx/sites-available/store
 ln -sf /etc/nginx/sites-available/store /etc/nginx/sites-enabled/store
 rm -f /etc/nginx/sites-enabled/default
