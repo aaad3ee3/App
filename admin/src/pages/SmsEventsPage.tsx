@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { Modal } from "../components/Modal";
+import { formatMoney } from "../utils/format";
 
 interface SmsEventRow {
   id: string;
@@ -40,8 +43,25 @@ const PAGE_SIZE = 20;
 export function SmsEventsPage() {
   const [items, setItems] = useState<SmsEventRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [matchStatus, setMatchStatus] = useState("unmatched");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Number(searchParams.get("page") ?? "1");
+  const matchStatus = searchParams.get("match_status") ?? "unmatched";
+  const setPage = (updater: (p: number) => number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("page", String(updater(page)));
+      return next;
+    });
+  };
+  const setMatchStatus = (value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set("match_status", value);
+      else next.delete("match_status");
+      next.set("page", "1");
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ type: "resolve" | "ignore"; row: SmsEventRow } | null>(null);
@@ -77,13 +97,7 @@ export function SmsEventsPage() {
         رسائل ما قدر النظام يطابقها تلقائياً مع طلب شحن — راجعها وثبّت المطابقة الصحيحة يدوياً.
       </p>
       <div className="toolbar">
-        <select
-          value={matchStatus}
-          onChange={(e) => {
-            setMatchStatus(e.target.value);
-            setPage(1);
-          }}
-        >
+        <select value={matchStatus} onChange={(e) => setMatchStatus(e.target.value)}>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {STATUS_LABELS[s]}
@@ -92,8 +106,12 @@ export function SmsEventsPage() {
         </select>
       </div>
       <div className="card">
-        {loading && <div className="loading-text">جارٍ التحميل...</div>}
-        {error && <div className="error-text">{error}</div>}
+        {loading && <div className="loading-text">جارٍ التحميل…</div>}
+        {error && (
+          <div className="error-text" aria-live="polite">
+            {error}
+          </div>
+        )}
         {!loading && !error && items.length === 0 && <div className="empty-state">لا توجد رسائل</div>}
         {!loading && items.length > 0 && (
           <table className="data-table">
@@ -116,7 +134,7 @@ export function SmsEventsPage() {
                     {ev.reported_sender ?? "—"}
                     {!ev.sender_trusted && <div className="hint-text">غير موثوق</div>}
                   </td>
-                  <td>{ev.parsed_amount ? `${Number(ev.parsed_amount).toFixed(3)} LYD` : "—"}</td>
+                  <td>{ev.parsed_amount ? `${formatMoney(ev.parsed_amount)} LYD` : "—"}</td>
                   <td>{ev.parsed_sender_phone ?? "—"}</td>
                   <td>
                     <StatusBadge status={ev.match_status} />
@@ -195,6 +213,7 @@ function ResolveModal({
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const selectId = useId();
 
   useEffect(() => {
     Promise.all([
@@ -225,41 +244,48 @@ function ResolveModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3>ربط الرسالة بطلب شحن</h3>
-        <p className="hint-text">
-          الرسالة: {event.parsed_amount ? `${Number(event.parsed_amount).toFixed(3)} LYD` : "—"} من{" "}
-          {event.parsed_sender_phone ?? "رقم غير معروف"}
-        </p>
-        {loadingOptions ? (
-          <div className="loading-text">جارٍ تحميل الطلبات...</div>
-        ) : options.length === 0 ? (
-          <div className="hint-text">لا توجد طلبات شحن معلقة حالياً</div>
-        ) : (
-          <div className="field">
-            <label>طلب الشحن</label>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ width: "100%" }}>
-              <option value="">اختر...</option>
-              {options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.sender_phone} — {Number(o.requested_amount).toFixed(3)} LYD —{" "}
-                  {new Date(o.created_at).toLocaleString("ar-LY")}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {error && <div className="error-text">{error}</div>}
-        <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose} disabled={busy}>
-            إلغاء
-          </button>
-          <button className="btn" onClick={submit} disabled={busy || loadingOptions}>
-            {busy ? "..." : "تأكيد الربط"}
-          </button>
+    <Modal onClose={onClose}>
+      <h3>ربط الرسالة بطلب شحن</h3>
+      <p className="hint-text">
+        الرسالة: {event.parsed_amount ? `${formatMoney(event.parsed_amount)} LYD` : "—"} من{" "}
+        {event.parsed_sender_phone ?? "رقم غير معروف"}
+      </p>
+      {loadingOptions ? (
+        <div className="loading-text">جارٍ تحميل الطلبات…</div>
+      ) : options.length === 0 ? (
+        <div className="hint-text">لا توجد طلبات شحن معلقة حالياً</div>
+      ) : (
+        <div className="field">
+          <label htmlFor={selectId}>طلب الشحن</label>
+          <select
+            id={selectId}
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            style={{ width: "100%" }}
+          >
+            <option value="">اختر…</option>
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.sender_phone} — {formatMoney(o.requested_amount)} LYD —{" "}
+                {new Date(o.created_at).toLocaleString("ar-LY")}
+              </option>
+            ))}
+          </select>
         </div>
+      )}
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
+      <div className="modal-actions">
+        <button className="btn btn-outline" onClick={onClose} disabled={busy}>
+          إلغاء
+        </button>
+        <button className="btn" onClick={submit} disabled={busy || loadingOptions}>
+          {busy ? "جارٍ الربط…" : "تأكيد الربط"}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

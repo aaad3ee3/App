@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { formatMoney } from "../utils/format";
 
 interface OrderRow {
   id: string;
@@ -34,8 +35,24 @@ const PAGE_SIZE = 20;
 export function OrdersPage() {
   const [items, setItems] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("ambiguous_error");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Number(searchParams.get("page") ?? "1");
+  const status = searchParams.get("status") ?? "ambiguous_error";
+  const setPage = (updater: (p: number) => number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("page", String(updater(page)));
+      return next;
+    });
+  };
+  const setStatus = (value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("status", value);
+      next.set("page", "1");
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ type: "complete" | "refund"; row: OrderRow } | null>(null);
@@ -71,13 +88,7 @@ export function OrdersPage() {
         المستخدم لكن ما اتأكدناش من نجاح أو فشل التنفيذ الفعلي. راجعها يدوياً مع لوحة المورد قبل ما تقرر.
       </p>
       <div className="toolbar">
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {STATUS_LABELS[s]}
@@ -86,8 +97,12 @@ export function OrdersPage() {
         </select>
       </div>
       <div className="card">
-        {loading && <div className="loading-text">جارٍ التحميل...</div>}
-        {error && <div className="error-text">{error}</div>}
+        {loading && <div className="loading-text">جارٍ التحميل…</div>}
+        {error && (
+          <div className="error-text" aria-live="polite">
+            {error}
+          </div>
+        )}
         {!loading && !error && items.length === 0 && <div className="empty-state">لا توجد طلبات</div>}
         {!loading && items.length > 0 && (
           <table className="data-table">
@@ -111,7 +126,7 @@ export function OrdersPage() {
                   </td>
                   <td>{o.kind === "giftcard" ? "بطاقة" : "خدمة سوشيال"}</td>
                   <td>{o.quantity}</td>
-                  <td>{Number(o.total_price).toFixed(3)} LYD</td>
+                  <td>{formatMoney(o.total_price)} LYD</td>
                   <td>
                     <StatusBadge status={o.status} />
                   </td>
@@ -186,7 +201,7 @@ export function OrdersPage() {
           }}
         >
           <p>
-            هيتم إرجاع <b>{Number(modal.row.total_price).toFixed(3)} LYD</b> لمحفظة المستخدم. استخدم هذا لو
+            هيتم إرجاع <b>{formatMoney(modal.row.total_price)} LYD</b> لمحفظة المستخدم. استخدم هذا لو
             تأكدت إن الطلب ما اتنفذش.
           </p>
         </ConfirmModal>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
+import { formatMoney } from "../utils/format";
 
 interface UserDetail {
   id: string;
@@ -41,8 +42,12 @@ export function UserDetailPage() {
       <h1 className="page-title" style={{ marginTop: 12 }}>
         تفاصيل المستخدم
       </h1>
-      {loading && <div className="loading-text">جارٍ التحميل...</div>}
-      {error && <div className="error-text">{error}</div>}
+      {loading && <div className="loading-text">جارٍ التحميل…</div>}
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
       {user && (
         <div className="card">
           <table className="data-table">
@@ -58,7 +63,7 @@ export function UserDetailPage() {
               <tr>
                 <th>الرصيد</th>
                 <td>
-                  {user.balance ? `${Number(user.balance).toFixed(3)} ${user.currency ?? "LYD"}` : "—"}
+                  {user.balance ? `${formatMoney(user.balance)} ${user.currency ?? "LYD"}` : "—"}
                 </td>
               </tr>
               <tr>

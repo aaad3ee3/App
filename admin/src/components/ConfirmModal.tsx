@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { Modal } from "./Modal";
 
 interface ConfirmModalProps {
   title: string;
@@ -22,6 +23,7 @@ export function ConfirmModal({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const noteId = useId();
 
   const handleConfirm = async () => {
     if (requireNote && !note.trim()) {
@@ -41,24 +43,26 @@ export function ConfirmModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3>{title}</h3>
-        {children}
-        <div className="field" style={{ marginTop: 10 }}>
-          <label>ملاحظة{requireNote ? "" : " (اختياري)"}</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-        {error && <div className="error-text">{error}</div>}
-        <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose} disabled={busy}>
-            إلغاء
-          </button>
-          <button className={`btn ${danger ? "btn-danger" : ""}`} onClick={handleConfirm} disabled={busy}>
-            {busy ? "..." : confirmLabel}
-          </button>
-        </div>
+    <Modal onClose={onClose}>
+      <h3>{title}</h3>
+      {children}
+      <div className="field" style={{ marginTop: 10 }}>
+        <label htmlFor={noteId}>ملاحظة{requireNote ? "" : " (اختياري)"}</label>
+        <textarea id={noteId} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
-    </div>
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
+      <div className="modal-actions">
+        <button className="btn btn-outline" onClick={onClose} disabled={busy}>
+          إلغاء
+        </button>
+        <button className={`btn ${danger ? "btn-danger" : ""}`} onClick={handleConfirm} disabled={busy}>
+          {busy ? "جارٍ التنفيذ…" : confirmLabel}
+        </button>
+      </div>
+    </Modal>
   );
 }

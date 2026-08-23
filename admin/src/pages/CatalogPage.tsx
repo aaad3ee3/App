@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
+import { formatMoney } from "../utils/format";
 
 interface CategoryRow {
   id: string;
@@ -33,10 +35,26 @@ interface SyncResult {
 }
 
 export function CatalogPage() {
-  const [tab, setTab] = useState<"categories" | "products">("categories");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "products" ? "products" : "categories";
+  const categoryFilter = searchParams.get("category_id") ?? "";
+  const setTab = (value: "categories" | "products") => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", value);
+      return next;
+    });
+  };
+  const setCategoryFilter = (value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set("category_id", value);
+      else next.delete("category_id");
+      return next;
+    });
+  };
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -93,11 +111,15 @@ export function CatalogPage() {
           الكتالوج
         </h1>
         <button className="btn btn-accent" onClick={runSync} disabled={syncing}>
-          {syncing ? "جارٍ المزامنة..." : "مزامنة من الموردين"}
+          {syncing ? "جارٍ المزامنة…" : "مزامنة من الموردين"}
         </button>
       </div>
 
-      {syncError && <div className="error-text">{syncError}</div>}
+      {syncError && (
+        <div className="error-text" aria-live="polite">
+          {syncError}
+        </div>
+      )}
       {syncResult && (
         <div className="card" style={{ background: "#eef6f4" }}>
           تمت المزامنة — Libya Play: {syncResult.libya_play.categories} تصنيف / {syncResult.libya_play.products} منتج
@@ -114,13 +136,17 @@ export function CatalogPage() {
         </button>
       </div>
 
-      {loading && <div className="loading-text">جارٍ التحميل...</div>}
-      {error && <div className="error-text">{error}</div>}
+      {loading && <div className="loading-text">جارٍ التحميل…</div>}
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
 
       {!loading && tab === "categories" && (
         <div className="card">
           {categories.length === 0 ? (
-            <div className="empty-state">لا توجد تصنيفات — اضغط "مزامنة من الموردين" أولاً</div>
+            <div className="empty-state">لا توجد تصنيفات — اضغط «مزامنة من الموردين» أولاً</div>
           ) : (
             <table className="data-table">
               <thead>
@@ -249,7 +275,7 @@ function ProductRowView({ product, onChanged }: { product: ProductRow; onChanged
     <tr>
       <td>{product.name}</td>
       <td>
-        {Number(product.cost_price).toFixed(3)} {product.currency}
+        {formatMoney(product.cost_price)} {product.currency}
       </td>
       <td>
         {editing ? (
@@ -261,9 +287,13 @@ function ProductRowView({ product, onChanged }: { product: ProductRow; onChanged
             style={{ width: 90 }}
           />
         ) : (
-          `${Number(product.sell_price).toFixed(3)} ${product.currency}`
+          `${formatMoney(product.sell_price)} ${product.currency}`
         )}
-        {error && <div className="error-text">{error}</div>}
+        {error && (
+          <div className="error-text" aria-live="polite">
+            {error}
+          </div>
+        )}
       </td>
       <td>{product.available ? "نعم" : "لا"}</td>
       <td>

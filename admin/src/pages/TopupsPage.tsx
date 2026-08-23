@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { Modal } from "../components/Modal";
+import { formatMoney } from "../utils/format";
 
 interface TopupRow {
   id: string;
@@ -30,8 +32,25 @@ const PAGE_SIZE = 20;
 export function TopupsPage() {
   const [items, setItems] = useState<TopupRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Number(searchParams.get("page") ?? "1");
+  const status = searchParams.get("status") ?? "";
+  const setPage = (updater: (p: number) => number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("page", String(updater(page)));
+      return next;
+    });
+  };
+  const setStatus = (value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set("status", value);
+      else next.delete("status");
+      next.set("page", "1");
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ type: "reject" | "credit"; row: TopupRow } | null>(null);
@@ -65,13 +84,7 @@ export function TopupsPage() {
     <div>
       <h1 className="page-title">طلبات الشحن (Libyana)</h1>
       <div className="toolbar">
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {STATUS_LABELS[s]}
@@ -80,8 +93,12 @@ export function TopupsPage() {
         </select>
       </div>
       <div className="card">
-        {loading && <div className="loading-text">جارٍ التحميل...</div>}
-        {error && <div className="error-text">{error}</div>}
+        {loading && <div className="loading-text">جارٍ التحميل…</div>}
+        {error && (
+          <div className="error-text" aria-live="polite">
+            {error}
+          </div>
+        )}
         {!loading && !error && items.length === 0 && <div className="empty-state">لا توجد طلبات</div>}
         {!loading && items.length > 0 && (
           <table className="data-table">
@@ -103,7 +120,7 @@ export function TopupsPage() {
                     <Link to={`/users/${t.user_id}`}>{t.user_id.slice(0, 8)}…</Link>
                   </td>
                   <td>{t.sender_phone}</td>
-                  <td>{Number(t.requested_amount).toFixed(3)} LYD</td>
+                  <td>{formatMoney(t.requested_amount)} LYD</td>
                   <td>
                     <StatusBadge status={t.status} />
                   </td>
@@ -160,7 +177,7 @@ export function TopupsPage() {
           }}
         >
           <p>
-            هترفض طلب شحن بمبلغ <b>{Number(modal.row.requested_amount).toFixed(3)} LYD</b> من الرقم{" "}
+            هترفض طلب شحن بمبلغ <b>{formatMoney(modal.row.requested_amount)} LYD</b> من الرقم{" "}
             <b>{modal.row.sender_phone}</b>.
           </p>
         </ConfirmModal>
@@ -178,6 +195,8 @@ function CreditModal({ row, onClose, onDone }: { row: TopupRow; onClose: () => v
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const amountId = useId();
+  const noteId = useId();
 
   const submit = async () => {
     if (!note.trim()) {
@@ -198,30 +217,38 @@ function CreditModal({ row, onClose, onDone }: { row: TopupRow; onClose: () => v
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3>إيداع يدوي</h3>
-        <p className="hint-text">
-          هيتم إيداع المبلغ في محفظة المستخدم مباشرة وتحديد الطلب كمكتمل.
-        </p>
-        <div className="field">
-          <label>المبلغ (LYD)</label>
-          <input type="number" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>ملاحظة</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
-        {error && <div className="error-text">{error}</div>}
-        <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose} disabled={busy}>
-            إلغاء
-          </button>
-          <button className="btn" onClick={submit} disabled={busy}>
-            {busy ? "..." : "تأكيد الإيداع"}
-          </button>
-        </div>
+    <Modal onClose={onClose}>
+      <h3>إيداع يدوي</h3>
+      <p className="hint-text">
+        هيتم إيداع المبلغ في محفظة المستخدم مباشرة وتحديد الطلب كمكتمل.
+      </p>
+      <div className="field">
+        <label htmlFor={amountId}>المبلغ (LYD)</label>
+        <input
+          id={amountId}
+          type="number"
+          step="0.001"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
       </div>
-    </div>
+      <div className="field">
+        <label htmlFor={noteId}>ملاحظة</label>
+        <textarea id={noteId} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
+      <div className="modal-actions">
+        <button className="btn btn-outline" onClick={onClose} disabled={busy}>
+          إلغاء
+        </button>
+        <button className="btn" onClick={submit} disabled={busy}>
+          {busy ? "جارٍ الإيداع…" : "تأكيد الإيداع"}
+        </button>
+      </div>
+    </Modal>
   );
 }

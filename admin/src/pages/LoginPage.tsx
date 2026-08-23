@@ -41,6 +41,7 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoFocus
+            autoComplete="username"
           />
         </div>
         <div className="field">
@@ -50,11 +51,16 @@ export function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            autoComplete="current-password"
           />
         </div>
-        {(error || localError) && <div className="error-text">{error ?? localError}</div>}
+        {(error || localError) && (
+          <div className="error-text" aria-live="polite">
+            {error ?? localError}
+          </div>
+        )}
         <button className="btn" type="submit" disabled={submitting} style={{ width: "100%" }}>
-          {submitting ? "جارٍ الدخول..." : "تسجيل الدخول"}
+          {submitting ? "جارٍ الدخول…" : "تسجيل الدخول"}
         </button>
       </form>
     </div>

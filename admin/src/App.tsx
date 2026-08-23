@@ -11,7 +11,7 @@ import { OrdersPage } from "./pages/OrdersPage";
 
 function ProtectedArea() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="loading-text" style={{ padding: 40 }}>جارٍ التحميل...</div>;
+  if (loading) return <div className="loading-text" style={{ padding: 40 }}>جارٍ التحميل…</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <DashboardLayout />;
 }

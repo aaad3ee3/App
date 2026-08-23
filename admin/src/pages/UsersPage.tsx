@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
+import { formatMoney } from "../utils/format";
 
 interface UserListItem {
   id: string;
@@ -18,7 +19,15 @@ const PAGE_SIZE = 20;
 export function UsersPage() {
   const [items, setItems] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Number(searchParams.get("page") ?? "1");
+  const setPage = (updater: (p: number) => number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("page", String(updater(page)));
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +55,12 @@ export function UsersPage() {
     <div>
       <h1 className="page-title">المستخدمون</h1>
       <div className="card">
-        {loading && <div className="loading-text">جارٍ التحميل...</div>}
-        {error && <div className="error-text">{error}</div>}
+        {loading && <div className="loading-text">جارٍ التحميل…</div>}
+        {error && (
+          <div className="error-text" aria-live="polite">
+            {error}
+          </div>
+        )}
         {!loading && !error && items.length === 0 && <div className="empty-state">لا يوجد مستخدمون</div>}
         {!loading && items.length > 0 && (
           <table className="data-table">
@@ -68,7 +81,7 @@ export function UsersPage() {
                     <Link to={`/users/${u.id}`}>{u.email}</Link>
                   </td>
                   <td>{u.full_name ?? "—"}</td>
-                  <td>{u.balance ? `${Number(u.balance).toFixed(3)} LYD` : "—"}</td>
+                  <td>{u.balance ? `${formatMoney(u.balance)} LYD` : "—"}</td>
                   <td>
                     <StatusBadge status={u.status} />
                   </td>
