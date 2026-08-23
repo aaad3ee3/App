@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     try {
-      const result = await api.post<{ token: string }>("/auth/login", { email, password });
+      const result = await api.post<{ token: string }>("/admin/auth/login", { email, password });
       setToken(result.token);
       const me = await api.get<AdminUser>("/auth/me");
       if (!me.is_admin) {

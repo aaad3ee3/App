@@ -4,7 +4,13 @@ import { DEFAULT_CURRENCY } from "../../config/constants";
 import { generateOpaqueToken, sha256Hex } from "../../lib/crypto";
 import { HttpError } from "../../plugins/error-handler.plugin";
 import * as repo from "./auth.repository";
-import type { CompletePasswordResetInput, CompleteRegistrationInput, LoginInput } from "./auth.schemas";
+import type {
+  AdminLoginInput,
+  CompletePasswordResetInput,
+  CompleteRegistrationInput,
+  LoginInput,
+} from "./auth.schemas";
+import type { UserRow } from "../../db/types";
 import * as otp from "./otp.service";
 
 function publicUser(user: { id: string; phone: string | null; email: string | null; full_name: string | null }) {
@@ -80,12 +86,13 @@ export async function completeRegistration(input: CompleteRegistrationInput, met
   return { token, user: publicUser(user) };
 }
 
-export async function login(input: LoginInput, meta: SessionMeta) {
-  const user = await repo.findUserByPhone(input.phone);
-  if (!user) {
-    throw new HttpError(401, "invalid_credentials", "رقم الهاتف أو كلمة المرور غير صحيحة");
-  }
-
+/**
+ * Shared by every password login path once the account has been looked up: lockout,
+ * password verification with failed-attempt bookkeeping, and the active-status check.
+ * `invalidMessage` lets each caller keep its own wording (phone vs email) without
+ * duplicating the lockout/verify/status sequence itself.
+ */
+async function verifyPasswordLogin(user: UserRow, password: string, invalidMessage: string): Promise<void> {
   if (repo.isLocked(user)) {
     throw new HttpError(
       429,
@@ -94,10 +101,10 @@ export async function login(input: LoginInput, meta: SessionMeta) {
     );
   }
 
-  const passwordOk = await argon2.verify(user.password_hash, input.password).catch(() => false);
+  const passwordOk = await argon2.verify(user.password_hash, password).catch(() => false);
   if (!passwordOk) {
     await repo.registerFailedLogin(user.id, env.LOGIN_MAX_FAILED_ATTEMPTS, env.LOGIN_LOCKOUT_MINUTES);
-    throw new HttpError(401, "invalid_credentials", "رقم الهاتف أو كلمة المرور غير صحيحة");
+    throw new HttpError(401, "invalid_credentials", invalidMessage);
   }
 
   if (user.status !== "active") {
@@ -105,6 +112,33 @@ export async function login(input: LoginInput, meta: SessionMeta) {
   }
 
   await repo.resetFailedLogin(user.id);
+}
+
+export async function login(input: LoginInput, meta: SessionMeta) {
+  const invalidMessage = "رقم الهاتف أو كلمة المرور غير صحيحة";
+  const user = await repo.findUserByPhone(input.phone);
+  if (!user) {
+    throw new HttpError(401, "invalid_credentials", invalidMessage);
+  }
+
+  await verifyPasswordLogin(user, input.password, invalidMessage);
+  const token = await issueSession(user.id, meta);
+  return { token, user: publicUser(user) };
+}
+
+/**
+ * Admin dashboard sign-in. Deliberately the same "invalid credentials" message whether
+ * the email does not exist, the password is wrong, or the account exists but is not an
+ * admin — distinguishing those would let a caller probe which emails have admin access.
+ */
+export async function loginAdmin(input: AdminLoginInput, meta: SessionMeta) {
+  const invalidMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+  const user = await repo.findUserByEmail(input.email);
+  if (!user || !user.is_admin) {
+    throw new HttpError(401, "invalid_credentials", invalidMessage);
+  }
+
+  await verifyPasswordLogin(user, input.password, invalidMessage);
   const token = await issueSession(user.id, meta);
   return { token, user: publicUser(user) };
 }

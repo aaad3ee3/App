@@ -51,6 +51,14 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/** Admin dashboard staff sign in by email, not phone — they are not necessarily Libyana
+ * customers, and requiring one would tie internal tooling access to a carrier account. */
+export const adminLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1),
+});
+export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
+
 export const requestPasswordResetSchema = z.object({
   phone: libyanaPhone,
 });

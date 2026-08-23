@@ -11,6 +11,7 @@ import walletRoutes from "./modules/wallet/wallet.routes";
 import topupsRoutes from "./modules/topups/topups.routes";
 import smsRoutes from "./modules/sms/sms.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import adminAuthRoutes from "./modules/admin/admin-auth.routes";
 import catalogRoutes from "./modules/catalog/catalog.routes";
 import ordersRoutes from "./modules/orders/orders.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
@@ -66,6 +67,7 @@ export function buildApp() {
   app.register(walletRoutes, { prefix: "/api/v1/wallet" });
   app.register(topupsRoutes, { prefix: "/api/v1/topups" });
   app.register(smsRoutes, { prefix: "/api/v1/webhooks/sms" });
+  app.register(adminAuthRoutes, { prefix: "/api/v1/admin" });
   app.register(adminRoutes, { prefix: "/api/v1/admin" });
   app.register(catalogRoutes, { prefix: "/api/v1/catalog" });
   app.register(ordersRoutes, { prefix: "/api/v1/orders" });
