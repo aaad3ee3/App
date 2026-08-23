@@ -1,0 +1,66 @@
+# Render Blueprint — free-tier deployment for the backend API and the admin dashboard.
+# Read deploy/render-neon/README.md before using this; several values below are
+# placeholders (marked "غيّرها") that only make sense once you have a real Neon
+# connection string and a few other secrets in hand.
+#
+# The database is deliberately NOT defined here. Render's own free Postgres deletes
+# itself after 30 days — this app's wallets and orders can't live on a timer like that.
+# Create the database on Neon (free, permanent, no card) instead, and paste its
+# connection string into DATABASE_URL below.
+
+services:
+  - type: web
+    name: sayeh-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # الصق رابط الاتصال من Neon هنا يدوياً بعد الإنشاء — لا تحطه في الكود
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://sayeh-admin.onrender.com
+      - key: SMS_WEBHOOK_HMAC_SECRET
+        generateValue: true # Render يولّد قيمة عشوائية آمنة تلقائياً
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SUPPORT_WHATSAPP
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://sayeh-api.onrender.com
+      # اختياري: اتركها فاضية الآن. بدون SMS_GATEWAY_URL ترمز التحقق تُطبع في سجل Render
+      # بدل ما تُرسل فعلياً — مقبول لتجربة مع أصدقاء تعرفهم، مرفوض قبل إطلاق حقيقي.
+      - key: SMS_GATEWAY_URL
+        sync: false
+      - key: LIBYA_PLAY_API_KEY
+        sync: false
+      - key: LIBYA_PLAY_EMAIL
+        sync: false
+      - key: PLUS_API_KEY
+        sync: false
+      - key: PLUS_USD_TO_LYD_RATE
+        sync: false
+
+  - type: web
+    name: sayeh-admin
+    runtime: static
+    rootDir: admin
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://sayeh-api.onrender.com/api/v1
+    routes:
+      # لوحة React أحادية الصفحة (SPA) — أي مسار غير موجود كملف يرجع لـ index.html
+      # ليتولى react-router-dom التوجيه من جهة العميل.
+      - type: rewrite
+        source: /*
+        destination: /index.html

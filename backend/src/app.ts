@@ -1,6 +1,8 @@
+import path from "node:path";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import fastifyStatic from "@fastify/static";
 import { env } from "./config/env";
 import errorHandlerPlugin from "./plugins/error-handler.plugin";
 import authPlugin from "./plugins/auth.plugin";
@@ -37,10 +39,18 @@ export function buildApp() {
 
   app.register(errorHandlerPlugin);
   app.register(helmet, {
-    // This process only ever returns JSON, so the safest CSP is one that permits nothing:
-    // if a reflected value ever lands in an error page, the browser still won't run it.
+    // Almost everything here is JSON, so the default stays "permit nothing": if a
+    // reflected value ever lands in an error page, the browser still won't run it.
+    // style-src is the one exception, needed for the two static legal pages below —
+    // their inline <style> block is the same one nginx already serves with
+    // style-src 'self' 'unsafe-inline' in the VPS/home deploys (deploy/security-headers.conf).
     contentSecurityPolicy: {
-      directives: { "default-src": ["'none'"], "frame-ancestors": ["'none'"], "base-uri": ["'none'"] },
+      directives: {
+        "default-src": ["'none'"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "frame-ancestors": ["'none'"],
+        "base-uri": ["'none'"],
+      },
     },
     crossOriginResourcePolicy: { policy: "same-site" },
     referrerPolicy: { policy: "no-referrer" },
@@ -62,6 +72,17 @@ export function buildApp() {
   app.register(adminAuthPlugin);
 
   app.get("/health", async () => ({ ok: true }));
+
+  // Privacy policy and terms need a stable public URL — the app and the store listings
+  // link to them directly, and a store review fails on a dead link. Deployments that put
+  // nginx in front (deploy/README.md, deploy/home/README.md) already serve these via a
+  // /legal/ alias; on a platform with no reverse-proxy layer of our own (e.g. Render)
+  // this is the only thing serving them, so it stays registered unconditionally rather
+  // than only when nginx is absent — one code path instead of two to keep in sync.
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, "..", "..", "legal"),
+    prefix: "/legal/",
+  });
 
   app.register(authRoutes, { prefix: "/api/v1/auth" });
   app.register(walletRoutes, { prefix: "/api/v1/wallet" });

@@ -4,6 +4,10 @@
 > the same stack on a machine you already own, with Tailscale Funnel providing a stable
 > public HTTPS address — no public IP, no port forwarding, no card. Same scripts and the
 > same backup/restore path, so moving to a VPS later is a restore, not a rebuild.
+>
+> **Unreliable power or internet at home too?** [`render-neon/README.md`](render-neon/README.md)
+> runs the backend on Render and the database on Neon — both free, no card, and hosted
+> off-site, so neither depends on your own electricity or connection.
 
 Two scripts:
 
