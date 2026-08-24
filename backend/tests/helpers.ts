@@ -6,7 +6,7 @@ import type { CategoryRow, ProductKind, ProductRow, Supplier, UserRow, WalletRow
 
 export async function resetDb(): Promise<void> {
   await db.raw(
-    `TRUNCATE TABLE admin_actions, orders, products, categories, wallet_transactions, sms_events, topup_requests, sessions, wallets, users RESTART IDENTITY CASCADE`
+    `TRUNCATE TABLE admin_actions, coupon_redemptions, coupons, favorites, orders, products, categories, wallet_transactions, sms_events, topup_requests, sessions, wallets, device_tokens, users RESTART IDENTITY CASCADE`
   );
 }
 

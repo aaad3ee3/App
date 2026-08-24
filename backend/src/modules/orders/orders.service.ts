@@ -12,6 +12,8 @@ import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interfa
 import * as catalogRepo from "../catalog/catalog.repository";
 import * as walletRepo from "../wallet/wallet.repository";
 import * as notifications from "../notifications/notifications.service";
+import * as couponsService from "../coupons/coupons.service";
+import * as referralService from "../referral/referral.service";
 import * as ordersRepo from "./orders.repository";
 
 export interface OrderAdapters {
@@ -29,6 +31,9 @@ export interface CreateOrderInput {
   quantity?: number;
   /** Required for smm products (the URL/username to deliver to); must be absent for giftcard. */
   targetLink?: string;
+  /** Optional discount code — re-validated and atomically claimed inside the purchase
+   *  transaction, see coupons.service.ts `applyCoupon`. */
+  couponCode?: string;
 }
 
 /**
@@ -106,11 +111,17 @@ export async function createOrder(
 
   const totalPrice = Math.round(unitPrice * quantity * 10000) / 10000;
   const orderId = crypto.randomUUID();
+  const couponCode = input.couponCode?.trim();
 
   await db.transaction(async (trx) => {
     const wallet = await walletRepo.getWalletByUserId(userId, trx);
     if (!wallet) throw new HttpError(404, "not_found", "Wallet not found");
 
+    // The order row has to exist before a coupon can be claimed — coupon_redemptions has
+    // a foreign key on order_id. It's inserted here at the undiscounted price and then
+    // corrected below once the discount is known, so the stored total_price is still
+    // always the final, discounted amount actually charged by the time the transaction
+    // commits — never a raw price a receipt or refund would then have to remember to adjust.
     await ordersRepo.insertPendingOrder(
       {
         id: orderId,
@@ -125,10 +136,20 @@ export async function createOrder(
       trx
     );
 
+    let discountAmount = 0;
+    if (couponCode) {
+      const quote = await couponsService.applyCoupon(trx, userId, orderId, couponCode, totalPrice);
+      discountAmount = quote.discountAmount;
+    }
+    const chargedPrice = Math.round((totalPrice - discountAmount) * 10000) / 10000;
+    if (discountAmount > 0) {
+      await ordersRepo.updateTotalPrice(orderId, chargedPrice.toFixed(4), trx);
+    }
+
     const debitTx = await walletRepo.creditWallet(trx, {
       userId,
       walletId: wallet.id,
-      amount: -totalPrice,
+      amount: -chargedPrice,
       type: WALLET_TX_TYPES.ORDER_DEBIT,
       referenceType: WALLET_TX_REFERENCE_TYPES.ORDER,
       referenceId: orderId,
@@ -163,6 +184,7 @@ async function fulfillOrder(
       // Notifications are deliberately sent AFTER the order state is durable, and are
       // never awaited in a way that can fail the order — see notifications.service.ts.
       void notifications.notifyOrderCompleted(userId, details.productName, Boolean(redemption?.cardCode));
+      void referralService.maybeRewardReferral(userId, orderId);
     } else {
       const result = await adapters.smm.addOrder({
         supplierServiceId: product.supplier_product_ref,

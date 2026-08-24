@@ -3,7 +3,7 @@ import { normalizeSearchText, tokenizeQuery } from "../../lib/search";
 import type { ProductKind, ProductRow } from "../../db/types";
 import * as repo from "./catalog.repository";
 
-function toProductView(p: ProductRow) {
+function toProductView(p: ProductRow | repo.ProductWithPopularity) {
   return {
     id: p.id,
     name: p.name,
@@ -14,6 +14,7 @@ function toProductView(p: ProductRow) {
     price_per_1000: p.price_per_1000,
     min_quantity: p.min_quantity,
     max_quantity: p.max_quantity,
+    popular: "popular" in p ? p.popular : false,
   };
 }
 

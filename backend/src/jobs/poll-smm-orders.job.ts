@@ -1,4 +1,5 @@
 import * as notifications from "../modules/notifications/notifications.service";
+import * as referralService from "../modules/referral/referral.service";
 import { PlusAdapter } from "../adapters/smm/plus.adapter";
 import { PlusApiError } from "../adapters/smm/plus.client";
 import * as ordersRepo from "../modules/orders/orders.repository";
@@ -47,6 +48,7 @@ export async function pollSmmOrders(adapter: PlusAdapter = new PlusAdapter()): P
         // This is the moment the customer has been waiting for — an SMM order can take
         // hours, so without a push they have to keep reopening the app to check.
         void notifications.notifyOrderCompleted(order.user_id, "طلبك", false);
+        void referralService.maybeRewardReferral(order.user_id, order.id);
         completed += 1;
       } else if (classification === "failed") {
         await ordersRepo.markAmbiguous(order.id, `Plus reported a terminal failure status: "${status.status}"`);

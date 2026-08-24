@@ -8,6 +8,7 @@ const createOrderSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.coerce.number().int().positive().optional(),
   target_link: z.string().trim().min(1).max(2000).optional(),
+  coupon_code: z.string().trim().min(1).max(40).optional(),
 });
 
 const listQuerySchema = z.object({
@@ -40,6 +41,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
         productId: input.product_id,
         quantity: input.quantity,
         targetLink: input.target_link,
+        couponCode: input.coupon_code,
       });
       reply.status(201).send(order);
     }

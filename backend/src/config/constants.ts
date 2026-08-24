@@ -7,6 +7,7 @@ export const WALLET_TX_TYPES = {
   ORDER_DEBIT: "order_debit",
   ADMIN_ADJUSTMENT: "admin_adjustment",
   REFUND: "refund",
+  REFERRAL_BONUS: "referral_bonus",
 } as const;
 
 export const WALLET_TX_REFERENCE_TYPES = {

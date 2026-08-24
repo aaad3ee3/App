@@ -5,6 +5,7 @@ import { generateOpaqueToken, sha256Hex } from "../../lib/crypto";
 import { HttpError } from "../../plugins/error-handler.plugin";
 import * as repo from "./auth.repository";
 import { verifyGoogleIdToken } from "./google.service";
+import * as referralService from "../referral/referral.service";
 import type { AdminLoginInput, CompletePasswordResetInput, LoginInput, RegisterInput } from "./auth.schemas";
 import type { UserRow } from "../../db/types";
 import * as otp from "./otp.service";
@@ -43,8 +44,9 @@ export async function register(input: RegisterInput, meta: SessionMeta) {
   }
 
   const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
+  const referredBy = input.referral_code ? await referralService.resolveReferralCode(input.referral_code) : null;
   const user = await repo.createUserWithWallet(
-    { email: input.email, passwordHash, fullName: input.full_name ?? null },
+    { email: input.email, passwordHash, fullName: input.full_name ?? null, referredBy },
     DEFAULT_CURRENCY
   );
 

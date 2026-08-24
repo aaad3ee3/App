@@ -64,3 +64,23 @@ export const listOrdersQuerySchema = z.object({
 export const resolveOrderSchema = z.object({
   note: z.string().trim().min(1).max(1000),
 });
+
+export const createCouponSchema = z.object({
+  code: z.string().trim().min(3).max(40),
+  discount_type: z.enum(["percent", "fixed"]),
+  discount_value: z.coerce.number().positive(),
+  min_order_amount: z.coerce.number().nonnegative().default(0),
+  max_uses: z.coerce.number().int().positive().nullable().optional(),
+  max_uses_per_user: z.coerce.number().int().positive().default(1),
+  expires_at: z.coerce.date().nullable().optional(),
+});
+
+export const updateCouponSchema = z.object({
+  discount_type: z.enum(["percent", "fixed"]).optional(),
+  discount_value: z.coerce.number().positive().optional(),
+  min_order_amount: z.coerce.number().nonnegative().optional(),
+  max_uses: z.coerce.number().int().positive().nullable().optional(),
+  max_uses_per_user: z.coerce.number().int().positive().optional(),
+  enabled: z.boolean().optional(),
+  expires_at: z.coerce.date().nullable().optional(),
+});

@@ -43,6 +43,9 @@ export const registerSchema = z
     password,
     confirm_password: z.string(),
     full_name: z.string().trim().min(1).max(200).optional(),
+    // A friend's referral code, typed or deep-linked in. Unknown/invalid codes are
+    // silently ignored (see auth.service.ts) — a typo here must never block signup.
+    referral_code: z.string().trim().min(1).max(20).optional(),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "كلمتا المرور غير متطابقتين",

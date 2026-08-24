@@ -169,6 +169,16 @@ const envSchema = z.object({
   // engine never juggles currencies. NO sane default exists for a parallel-market rate —
   // this MUST be set to the real current rate before running a sync for real.
   PLUS_USD_TO_LYD_RATE: z.coerce.number().positive().default(5),
+
+  // Referral program: paid to BOTH the referrer and the referred customer the moment the
+  // referred customer's first order completes — see referral.service.ts.
+  REFERRAL_BONUS_LYD: z.coerce.number().nonnegative().default(5),
+
+  // Re-engagement push job (jobs/reengagement-push.job.ts). A user with no completed
+  // order in this many days, who hasn't already been pinged within
+  // REENGAGEMENT_MIN_GAP_DAYS, gets one push reminder.
+  REENGAGEMENT_INACTIVE_DAYS: z.coerce.number().int().positive().default(7),
+  REENGAGEMENT_MIN_GAP_DAYS: z.coerce.number().int().positive().default(7),
 });
 
 export type Env = z.infer<typeof envSchema>;

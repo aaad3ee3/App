@@ -11,6 +11,11 @@ export interface UserRow {
   status: "active" | "disabled";
   failed_login_attempts: number;
   locked_until: Date | null;
+  /** Lazily backfilled on first use — see referral.repository.ts `getOrCreateReferralCode`. */
+  referral_code: string | null;
+  referred_by: string | null;
+  referral_bonus_credited_at: Date | null;
+  last_reengagement_push_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -35,7 +40,7 @@ export interface WalletRow {
   updated_at: Date;
 }
 
-export type WalletTxType = "topup_credit" | "order_debit" | "admin_adjustment" | "refund";
+export type WalletTxType = "topup_credit" | "order_debit" | "admin_adjustment" | "refund" | "referral_bonus";
 export type WalletTxReferenceType = "topup_request" | "order" | "manual";
 
 export interface WalletTransactionRow {
@@ -160,4 +165,37 @@ export interface OrderRow {
   error_message: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface FavoriteRow {
+  id: string;
+  user_id: string;
+  product_id: string;
+  created_at: Date;
+}
+
+export type CouponDiscountType = "percent" | "fixed";
+
+export interface CouponRow {
+  id: string;
+  code: string;
+  discount_type: CouponDiscountType;
+  discount_value: string;
+  min_order_amount: string;
+  max_uses: number | null;
+  used_count: number;
+  max_uses_per_user: number;
+  enabled: boolean;
+  expires_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface CouponRedemptionRow {
+  id: string;
+  coupon_id: string;
+  user_id: string;
+  order_id: string;
+  discount_amount: string;
+  created_at: Date;
 }

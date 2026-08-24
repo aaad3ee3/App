@@ -141,10 +141,37 @@ export function getCategoryById(id: string, trx: Knex | Knex.Transaction = db): 
   return trx<CategoryRow>("categories").where({ id }).first();
 }
 
-export function listAvailableProductsByCategory(categoryId: string): Promise<ProductRow[]> {
-  return db<ProductRow>("products")
-    .where({ category_id: categoryId, available: true })
-    .orderBy("sell_price", "asc");
+export interface ProductWithPopularity extends ProductRow {
+  /** Top 3 sellers (by completed order count) within their own category — surfaced to the
+   *  customer as a "most ordered" badge. False (not just absent) for a product with zero
+   *  completed orders, however few products the category has. */
+  popular: boolean;
+}
+
+/**
+ * Ranks products by completed-order count within their own category (a window function,
+ * partitioned per category) and flags the top 3 as `popular`. Computed on every read
+ * rather than cached — the catalog is small enough (a few hundred products at most) that
+ * this costs nothing worth caching for, and a cache would just be one more thing to
+ * invalidate correctly every time an order completes.
+ */
+export async function listAvailableProductsByCategory(categoryId: string): Promise<ProductWithPopularity[]> {
+  const result = await db.raw<{ rows: ProductWithPopularity[] }>(
+    `SELECT p.*, COALESCE(oc.rnk <= 3 AND oc.completed_count > 0, false) AS popular
+     FROM products p
+     LEFT JOIN (
+       SELECT o.product_id, pp.category_id, COUNT(*) AS completed_count,
+              RANK() OVER (PARTITION BY pp.category_id ORDER BY COUNT(*) DESC) AS rnk
+       FROM orders o
+       JOIN products pp ON pp.id = o.product_id
+       WHERE o.status = 'completed'
+       GROUP BY o.product_id, pp.category_id
+     ) oc ON oc.product_id = p.id
+     WHERE p.category_id = ? AND p.available = true
+     ORDER BY p.sell_price ASC`,
+    [categoryId]
+  );
+  return result.rows;
 }
 
 export function getProductById(id: string, trx: Knex | Knex.Transaction = db): Promise<ProductRow | undefined> {

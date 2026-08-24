@@ -31,6 +31,11 @@ export async function insertPendingOrder(input: InsertPendingOrderInput, trx: Kn
   return row;
 }
 
+/** Corrects the order's total after a coupon discount is applied — see orders.service.ts. */
+export function updateTotalPrice(orderId: string, totalPrice: string, trx: Knex.Transaction): Promise<number> {
+  return trx("orders").where({ id: orderId }).update({ total_price: totalPrice, updated_at: new Date() });
+}
+
 export function markProcessing(orderId: string, walletDebitTransactionId: string, trx: Knex.Transaction): Promise<number> {
   return trx("orders")
     .where({ id: orderId })

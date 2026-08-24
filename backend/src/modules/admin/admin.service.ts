@@ -11,6 +11,7 @@ import * as smsRepo from "../sms/sms.repository";
 import * as topupsRepo from "../topups/topups.repository";
 import * as walletRepo from "../wallet/wallet.repository";
 import * as notifications from "../notifications/notifications.service";
+import * as couponsService from "../coupons/coupons.service";
 import * as adminRepo from "./admin.repository";
 
 export async function listSmsEvents(matchStatus: string | undefined, page: number, pageSize: number) {
@@ -238,4 +239,63 @@ export async function refundOrderAdmin(adminId: string, orderId: string, note: s
   // The customer has been waiting on a stuck order; tell them their money is back.
   void notifications.notifyOrderRefunded(order.user_id, Number(order.total_price).toFixed(3));
   return order;
+}
+
+// --- Coupons ---
+
+export async function listCoupons() {
+  return { items: await couponsService.listCoupons() };
+}
+
+export async function createCoupon(
+  adminId: string,
+  input: {
+    code: string;
+    discount_type: "percent" | "fixed";
+    discount_value: number;
+    min_order_amount: number;
+    max_uses?: number | null;
+    max_uses_per_user: number;
+    expires_at?: Date | null;
+  }
+) {
+  const coupon = await couponsService.createCoupon({
+    code: input.code,
+    discountType: input.discount_type,
+    discountValue: input.discount_value,
+    minOrderAmount: input.min_order_amount,
+    maxUses: input.max_uses ?? null,
+    maxUsesPerUser: input.max_uses_per_user,
+    expiresAt: input.expires_at ?? null,
+  });
+  // Reuses the 'product' target_type, same as category/product admin actions above — not
+  // worth a dedicated enum value (and migration) for one more kind of catalog-adjacent edit.
+  await adminRepo.logAction({ adminUserId: adminId, action: "create_coupon", targetType: "product", targetId: coupon.id, details: { code: coupon.code } });
+  return coupon;
+}
+
+export async function updateCoupon(
+  adminId: string,
+  couponId: string,
+  fields: {
+    discount_type?: "percent" | "fixed";
+    discount_value?: number;
+    min_order_amount?: number;
+    max_uses?: number | null;
+    max_uses_per_user?: number;
+    enabled?: boolean;
+    expires_at?: Date | null;
+  }
+) {
+  const result = await couponsService.updateCoupon(couponId, {
+    discountType: fields.discount_type,
+    discountValue: fields.discount_value,
+    minOrderAmount: fields.min_order_amount,
+    maxUses: fields.max_uses,
+    maxUsesPerUser: fields.max_uses_per_user,
+    enabled: fields.enabled,
+    expiresAt: fields.expires_at,
+  });
+  await adminRepo.logAction({ adminUserId: adminId, action: "update_coupon", targetType: "product", targetId: couponId, details: fields });
+  return result;
 }

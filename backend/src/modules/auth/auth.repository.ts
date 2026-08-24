@@ -23,6 +23,7 @@ export async function createUserWithWallet(
     email: string;
     passwordHash: string;
     fullName: string | null;
+    referredBy?: string | null;
   },
   currency: string
 ): Promise<UserRow> {
@@ -32,6 +33,7 @@ export async function createUserWithWallet(
         email: input.email,
         password_hash: input.passwordHash,
         full_name: input.fullName,
+        referred_by: input.referredBy ?? null,
       })
       .returning("*");
     if (!user) throw new Error("Failed to create user");

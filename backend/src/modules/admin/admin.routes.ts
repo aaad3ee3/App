@@ -4,6 +4,7 @@ import { env } from "../../config/env";
 import { keyByUser } from "../../plugins/rate-limit.plugin";
 import type { OrderStatus } from "../../db/types";
 import {
+  createCouponSchema,
   creditTopupManuallySchema,
   ignoreSmsEventSchema,
   listOrdersQuerySchema,
@@ -16,6 +17,7 @@ import {
   resolveSmsEventSchema,
   setCategoryEnabledSchema,
   updateCategoryImageSchema,
+  updateCouponSchema,
   updateProductAdminSchema,
 } from "./admin.schemas";
 import * as adminService from "./admin.service";
@@ -138,4 +140,22 @@ export default async function adminRoutes(app: FastifyInstance) {
       return adminService.refundOrderAdmin(request.user!.id, id, note);
     }
   );
+
+  // --- Coupons ---
+
+  app.get("/coupons", async () => {
+    return adminService.listCoupons();
+  });
+
+  app.post("/coupons", async (request, reply) => {
+    const input = createCouponSchema.parse(request.body);
+    const coupon = await adminService.createCoupon(request.user!.id, input);
+    reply.status(201).send(coupon);
+  });
+
+  app.post("/coupons/:id", async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const input = updateCouponSchema.parse(request.body);
+    return adminService.updateCoupon(request.user!.id, id, input);
+  });
 }

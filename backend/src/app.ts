@@ -18,6 +18,9 @@ import catalogRoutes from "./modules/catalog/catalog.routes";
 import ordersRoutes from "./modules/orders/orders.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
 import configRoutes from "./modules/config/config.routes";
+import favoritesRoutes from "./modules/favorites/favorites.routes";
+import referralRoutes from "./modules/referral/referral.routes";
+import couponsRoutes from "./modules/coupons/coupons.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -94,6 +97,9 @@ export function buildApp() {
   app.register(ordersRoutes, { prefix: "/api/v1/orders" });
   app.register(notificationsRoutes, { prefix: "/api/v1/notifications" });
   app.register(configRoutes, { prefix: "/api/v1/config" });
+  app.register(favoritesRoutes, { prefix: "/api/v1/favorites" });
+  app.register(referralRoutes, { prefix: "/api/v1/referral" });
+  app.register(couponsRoutes, { prefix: "/api/v1/coupons" });
 
   return app;
 }
