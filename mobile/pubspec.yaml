@@ -49,6 +49,10 @@ dependencies:
   # and drops the `idToken` off the plain authentication object, which is exactly the value
   # the backend verifies. Moving up is a code change, not a version bump.
   google_sign_in: ^6.2.2
+  # Staggered fade+slide-in for the category/product grids and lists — the one piece of
+  # the motion spec that's actually Flutter (not the Moti/React Native or CSS snippets
+  # from the same doc, which don't apply to this codebase).
+  flutter_staggered_animations: ^1.1.1
 
 dev_dependencies:
   flutter_test:

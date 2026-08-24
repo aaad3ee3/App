@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
@@ -71,11 +72,23 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
                   )
                 : RefreshIndicator(
                     onRefresh: _load,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _orders.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) => _OrderTile(order: _orders[index]),
+                    child: AnimationLimiter(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _orders.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 380),
+                          child: SlideAnimation(
+                            verticalOffset: 30,
+                            curve: Curves.easeOutCubic,
+                            child: FadeInAnimation(
+                              child: _OrderTile(order: _orders[index]),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   );
 

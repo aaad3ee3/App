@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -165,13 +166,25 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: products.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (context, index) => ProductTile(
-          product: products[index],
-          onTap: () => _openProduct(products[index]),
+      child: AnimationLimiter(
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: products.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 380),
+            child: SlideAnimation(
+              verticalOffset: 30,
+              curve: Curves.easeOutCubic,
+              child: FadeInAnimation(
+                child: ProductTile(
+                  product: products[index],
+                  onTap: () => _openProduct(products[index]),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

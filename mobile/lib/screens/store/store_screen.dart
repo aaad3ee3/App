@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/category.dart';
 import '../../models/search_result.dart';
@@ -217,15 +218,27 @@ class _StoreScreenState extends State<StoreScreen> {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _results.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) => ProductTile(
-        product: _results[index].product,
-        // The category is what makes a result readable: "60 UC" on its own says nothing.
-        subtitle: _results[index].category.name,
-        onTap: () => _openResult(_results[index]),
+    return AnimationLimiter(
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _results.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+          position: index,
+          duration: const Duration(milliseconds: 380),
+          child: SlideAnimation(
+            verticalOffset: 30,
+            curve: Curves.easeOutCubic,
+            child: FadeInAnimation(
+              child: ProductTile(
+                product: _results[index].product,
+                // The category is what makes a result readable: "60 UC" alone says nothing.
+                subtitle: _results[index].category.name,
+                onTap: () => _openResult(_results[index]),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -249,16 +262,29 @@ class _StoreScreenState extends State<StoreScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.95,
+      child: AnimationLimiter(
+        child: GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.95,
+          ),
+          itemCount: _categories.length,
+          itemBuilder: (context, index) => AnimationConfiguration.staggeredGrid(
+            position: index,
+            duration: const Duration(milliseconds: 380),
+            columnCount: 2,
+            child: SlideAnimation(
+              verticalOffset: 30,
+              curve: Curves.easeOutCubic,
+              child: FadeInAnimation(
+                child: _CategoryCard(category: _categories[index]),
+              ),
+            ),
+          ),
         ),
-        itemCount: _categories.length,
-        itemBuilder: (context, index) => _CategoryCard(category: _categories[index]),
       ),
     );
   }
