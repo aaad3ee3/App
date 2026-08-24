@@ -13,6 +13,7 @@ class AppConfig {
     this.supportWhatsapp,
     this.privacyUrl,
     this.termsUrl,
+    this.faqUrl,
     this.giftcardMinutes = 5,
     this.smmHours = 24,
     this.minSupportedVersion = 0,
@@ -23,6 +24,11 @@ class AppConfig {
   final String? supportWhatsapp;
   final String? privacyUrl;
   final String? termsUrl;
+
+  /// Null when the backend has no PUBLIC_BASE_URL set. The profile screen hides the row
+  /// rather than showing a dead link — unlike the policy URLs, there is no public fallback
+  /// to fall back to, and a broken help link is worse than no help link.
+  final String? faqUrl;
   final int giftcardMinutes;
   final int smmHours;
 
@@ -52,6 +58,7 @@ class AppConfig {
       supportWhatsapp: support?['whatsapp'] as String?,
       privacyUrl: legal?['privacy_url'] as String? ?? fallback.privacyUrl,
       termsUrl: legal?['terms_url'] as String? ?? fallback.termsUrl,
+      faqUrl: legal?['faq_url'] as String?,
       giftcardMinutes: (delivery?['giftcard_minutes'] as num?)?.toInt() ?? 5,
       smmHours: (delivery?['smm_hours'] as num?)?.toInt() ?? 24,
       minSupportedVersion: (app?['min_supported_version'] as num?)?.toInt() ?? 0,

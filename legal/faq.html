@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>الأسئلة الشائعة — سايح</title>
+<style>
+  :root {
+    --navy: #2B3A55; --gold: #C69A66; --paper: #FBF7F1; --card: #fff;
+    --text: #1E2A3F; --dim: #63707F; --rule: #E4DACA; --warn: #B3261E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --navy: #1A2740; --gold: #D9AE76; --paper: #121A26; --card: #1A2433;
+            --text: #E8E2D8; --dim: #97A3B4; --rule: #2C3A4E; --warn: #F2B8B5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--text);
+         font-family: "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+         line-height: 1.85; font-size: 16px; }
+  header { background: var(--navy); color: #fff; padding: 40px 24px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 24px 80px; }
+  header .wrap { padding-bottom: 0; }
+  h1 { margin: 0 0 6px; font-size: 28px; }
+  .updated { color: var(--gold); font-size: 14px; margin: 0; }
+  h2 { font-size: 20px; margin: 40px 0 6px; color: var(--navy); }
+  @media (prefers-color-scheme: dark) { h2 { color: var(--gold); } }
+  details { background: var(--card); border: 1px solid var(--rule);
+            border-radius: 10px; padding: 0; margin: 10px 0; overflow: hidden; }
+  summary { cursor: pointer; padding: 16px 20px; font-weight: 700; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "＋"; float: left; color: var(--gold); font-weight: 400; }
+  details[open] summary::after { content: "－"; }
+  details[open] summary { border-bottom: 1px solid var(--rule); }
+  .answer { padding: 16px 20px; }
+  .answer p:first-child { margin-top: 0; }
+  .answer p:last-child { margin-bottom: 0; }
+  ul { padding-right: 22px; margin: 8px 0; }
+  li { margin-bottom: 6px; }
+  a { color: var(--gold); }
+  .lead { background: var(--card); border: 1px solid var(--rule);
+          border-right: 4px solid var(--gold); padding: 18px 20px; margin: 28px 0; }
+  .warn { border-right-color: var(--warn); }
+  footer { border-top: 1px solid var(--rule); margin-top: 48px; padding-top: 20px;
+           color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>الأسئلة الشائعة</h1>
+    <p class="updated">تطبيق سايح</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="lead">
+    <p style="margin:0">
+      ما لقيت جوابك هنا؟ تواصل مع الدعم من داخل التطبيق:
+      <strong>حسابي ← تواصل مع الدعم</strong>. جهّز رقم الطلب ولقطة شاشة للمشكلة.
+    </p>
+  </div>
+
+  <h2>الحساب والتسجيل</h2>
+
+  <details>
+    <summary>كيف أعمل حساب؟</summary>
+    <div class="answer">
+      <p>
+        بالبريد الإلكتروني وكلمة مرور فقط — ما يحتاج رقم هاتف ولا كود في هذي المرحلة.
+        افتح التطبيق، اضغط «إنشاء حساب»، وأدخل بريدك وكلمة مرور وتأكيدها.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>ليش يطلب مني رقم هاتف بعدين؟</summary>
+    <div class="answer">
+      <p>
+        الرقم مطلوب فقط لما تبي <strong>تشحن محفظتك</strong>. لأن الشحن يتم بتحويل رصيد
+        ليبيانا، لازم نعرف الرقم اللي راح تحوّل منه عشان نطابق التحويل بحسابك تلقائياً
+        ونضيف الرصيد فوراً.
+      </p>
+      <p>
+        يوصلك كود تأكيد برسالة نصية مرة وحدة بس. بعدها الرقم يبقى مربوط بحسابك ولا يطلبه
+        منك مرة ثانية.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>ليش ليبيانا فقط؟ عندي رقم مدار</summary>
+    <div class="answer">
+      <p>
+        نظام الشحن التلقائي عندنا يستقبل تحويلات ليبيانا (092 و 094) فقط. رقم المدار
+        (091 و 093) ما يقدر يحوّل لنا رصيد عبر هذي القناة، ولا توصله أكوادنا — فقبوله
+        كان بينتج حساب ما يقدر يشحن أصلاً.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>نسيت كلمة المرور</summary>
+    <div class="answer">
+      <p>
+        من شاشة الدخول اضغط «نسيت كلمة المرور» ويوصلك كود على <strong>رقمك المربوط</strong>.
+      </p>
+      <p>
+        إذا حسابك جديد وما ربطت رقم بعد، تواصل مع الدعم مباشرة وراح نساعدك.
+      </p>
+    </div>
+  </details>
+
+  <h2>المحفظة والشحن</h2>
+
+  <details>
+    <summary>كيف أشحن رصيدي؟</summary>
+    <div class="answer">
+      <p>روح لشاشة الشحن، وبتلقى:</p>
+      <ul>
+        <li><strong>رقمك الموثق</strong> — الرقم اللي لازم تحوّل منه</li>
+        <li><strong>رقم المتجر</strong> — الرقم اللي تحوّل له (فيه زر نسخ)</li>
+        <li>خانة المبلغ</li>
+      </ul>
+      <p>
+        اكتب المبلغ، اضغط «تأكيد العملية»، وحوّل نفس المبلغ بالضبط من رقمك لرقم المتجر.
+        لما يوصلنا التحويل ويطابق المبلغ والرقم، ينضاف الرصيد <strong>تلقائياً</strong>.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>حوّلت وما انضاف رصيدي، ليش؟</summary>
+    <div class="answer">
+      <p>الأسباب الشائعة بالترتيب:</p>
+      <ul>
+        <li><strong>المبلغ مو مطابق</strong> — حوّلت مبلغ غير اللي كتبته بالطلب</li>
+        <li><strong>حوّلت من رقم ثاني</strong> — لازم من نفس الرقم الموثق بحسابك</li>
+        <li><strong>التحويل لسه ما وصلنا</strong> — أحياناً ليبيانا تتأخر بالرسالة</li>
+        <li><strong>حوّلت لرقم قديم</strong> — دايماً انسخ الرقم من داخل التطبيق</li>
+      </ul>
+      <p>
+        إذا كل شيء صحيح وما انضاف خلال شوي، الطلب يروح للمراجعة اليدوية عندنا ويُضاف بعد
+        التأكد. تواصل مع الدعم ومعك صورة رسالة التحويل.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>أقدر أسحب رصيدي كاش أو أرجّعه لليبيانا؟</summary>
+    <div class="answer">
+      <p>
+        لا. رصيد المحفظة يُستخدم داخل التطبيق للشراء فقط، ولا يُصرف نقداً ولا يُعاد إلى
+        رصيد ليبيانا ولا يُحوَّل لحساب آخر.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>هل ينتهي رصيدي إذا ما استخدمته؟</summary>
+    <div class="answer">
+      <p>لا، الرصيد يبقى في محفظتك ما دام حسابك نشط.</p>
+    </div>
+  </details>
+
+  <h2>الطلبات والتسليم</h2>
+
+  <details>
+    <summary>وين ألقى الكود بعد الشراء؟</summary>
+    <div class="answer">
+      <p>
+        في <strong>«طلباتي»</strong>. الكود يبقى محفوظ هناك دائماً، تقدر ترجعله في أي وقت.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>كم ياخذ الطلب وقت؟</summary>
+    <div class="answer">
+      <ul>
+        <li><strong>بطاقات الألعاب:</strong> دقائق عادةً</li>
+        <li><strong>خدمات المتابعين:</strong> تبدأ خلال فترة تختلف حسب الخدمة، وقد تستغرق ساعات حتى تكتمل</li>
+      </ul>
+      <p>هذي أوقات تقديرية — نعتمد على مزوّدين خارجيين.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>شنو معنى «قيد المراجعة»؟</summary>
+    <div class="answer">
+      <p>
+        يعني ما قدرنا نتأكد من نتيجة طلبك لدى المورّد — مثلاً انقطع الاتصال أثناء التنفيذ.
+        في هذي الحالة <strong>ما نخاطر بخصم مزدوج ولا بتسليم مجاني</strong>، فيراجعه موظف
+        يدوياً ويحسمه: إما يكمل الطلب أو يرجّع المبلغ كامل لمحفظتك.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>أقدر ألغي طلب بعد ما أكدته؟</summary>
+    <div class="answer">
+      <p>
+        لا. التنفيذ لدى المورّد يبدأ فوراً بعد التأكيد، فما يمكن إيقافه. راجع تفاصيل الطلب
+        كويس قبل الضغط على تأكيد.
+      </p>
+    </div>
+  </details>
+
+  <h2>البطاقات</h2>
+
+  <details>
+    <summary>الكود ما اشتغل، شنو أسوي؟</summary>
+    <div class="answer">
+      <p>أول شي تأكد من:</p>
+      <ul>
+        <li><strong>منطقة البطاقة تطابق منطقة حسابك</strong> — هذا أكثر سبب متكرر</li>
+        <li>ما فيه مسافة أو حرف ناقص عند النسخ</li>
+        <li>الحساب اللي تدخل فيه الكود هو الصح</li>
+      </ul>
+      <p>
+        إذا كل شي صحيح ورفضه المتجر، تواصل مع الدعم <strong>خلال ٧٢ ساعة</strong> ومعك رقم
+        الطلب ولقطة شاشة لرسالة الخطأ، ونراجعه مع المورّد.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>شنو يعني «منطقة البطاقة»؟</summary>
+    <div class="answer">
+      <p>
+        أغلب البطاقات (آيتونز، ستيم، بلايستيشن…) مرتبطة بدولة. البطاقة الأمريكية تشتغل
+        على حساب أمريكي فقط، والسعودية على حساب سعودي، وهكذا.
+      </p>
+      <p class="warn" style="border:0;padding:0;margin-top:10px">
+        <strong>مهم:</strong> لو اشتريت بطاقة لمنطقة غير منطقة حسابك، ما راح تتفعّل —
+        وهذا <strong>ما يُعتبر عيباً في المنتج ولا يُسترجع</strong>. تأكد من منطقة حسابك
+        قبل الشراء.
+      </p>
+    </div>
+  </details>
+
+  <h2>خدمات المتابعين (الرشق)</h2>
+
+  <details>
+    <summary>المتابعين نقصوا بعد يومين، ليش؟</summary>
+    <div class="answer">
+      <p>
+        النقصان (drop) وارد وطبيعي في هذا النوع من الخدمات، وما نضمن بقاء المتابعين.
+      </p>
+      <p>
+        الخدمات المكتوب باسمها «ضمان ٣٠ يوم» أو «ضمان سنة» يكون ضمانها <strong>من المورّد</strong>
+        وبالمدة المذكورة، والتعويض يكون <strong>بإعادة التنفيذ لا بإرجاع المبلغ</strong>.
+        إذا خدمتك فيها ضمان وحصل نقصان داخل مدته، تواصل مع الدعم.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>الطلب ما اشتغل على حسابي</summary>
+    <div class="answer">
+      <p>الأسباب الشائعة:</p>
+      <ul>
+        <li><strong>حسابك خاص (private)</strong> — لازم يكون عام قبل الطلب</li>
+        <li>غيّرت اسم المستخدم أثناء التنفيذ</li>
+        <li>الحساب مقيّد أو محذوف</li>
+        <li>طلبت أكثر من خدمة على نفس الرابط بنفس الوقت</li>
+      </ul>
+      <p>
+        هذي الحالات <strong>ما تُسترجع</strong> لأن المورّد نفّذ على المعطيات اللي أدخلتها.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>غلطت بالرابط، أقدر أوقف الطلب؟</summary>
+    <div class="answer">
+      <p>
+        للأسف لا. المورّد ينفّذ على الرابط اللي أدخلته فوراً، وما فيه طريقة نوقفها ولا
+        نسترجع المبلغ.
+      </p>
+      <p><strong>راجع الرابط حرفاً بحرف قبل التأكيد.</strong></p>
+    </div>
+  </details>
+
+  <details>
+    <summary>هل حسابي ممكن ينحظر بسبب الرشق؟</summary>
+    <div class="answer">
+      <p>
+        نعم، احتمال قائم. هذي الخدمات قد تخالف شروط المنصة نفسها (إنستغرام، تيك توك،
+        وغيرها) وقد تؤدي لتقييد أو حظر حسابك.
+      </p>
+      <p>
+        <strong>أنت تتحمّل هذي المخاطرة وحدك، ولسنا مسؤولين عن أي إجراء تتخذه المنصة ضد
+        حسابك.</strong> اقرأ
+        <a href="./terms.html#smm">شروط الاستخدام — قسم خدمات المتابعين</a> قبل الطلب.
+      </p>
+    </div>
+  </details>
+
+  <h2>الاسترجاع</h2>
+
+  <details>
+    <summary>متى أقدر أسترجع مبلغي؟</summary>
+    <div class="answer">
+      <p><strong>يُسترجع</strong> إذا فشل الطلب لدى المورّد وما وصلتك الخدمة إطلاقاً، أو صار خطأ تقني من طرفنا.</p>
+      <p><strong>ما يُسترجع</strong> بعد تسليم الكود، أو إذا أدخلت رابط/كود غلط، أو اشتريت بطاقة لمنطقة ثانية، أو نقص المتابعين، أو لمجرد تغيّر رأيك.</p>
+      <p>التفاصيل الكاملة في <a href="./terms.html#refund">شروط الاستخدام — سياسة الاسترجاع</a>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>الاسترجاع يوصلني كاش؟</summary>
+    <div class="answer">
+      <p>لا — يرجع إلى <strong>رصيد محفظتك</strong> داخل التطبيق، وتقدر تستخدمه بأي طلب ثاني.</p>
+    </div>
+  </details>
+
+  <h2>الأمان</h2>
+
+  <details>
+    <summary>واحد يطلب مني كود التحقق، أعطيه؟</summary>
+    <div class="answer">
+      <p>
+        <strong>لا، أبداً.</strong> نحن ما نطلب منك كلمة مرورك ولا رمز التحقق نهائياً —
+        حتى لو الشخص قال إنه من الدعم.
+      </p>
+      <p>من يطلبها منك فهو محتال. الدعم الرسمي الوحيد هو المعروض داخل التطبيق.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>كيف أحذف حسابي؟</summary>
+    <div class="answer">
+      <p>
+        من <strong>حسابي ← حذف الحساب</strong>. لازم تستخدم رصيدك وتكتمل طلباتك أولاً —
+        ما نسمح بالحذف والرصيد فيه مال حمايةً لحقك.
+      </p>
+      <p>الحذف نهائي ولا يمكن التراجع عنه.</p>
+    </div>
+  </details>
+
+  <footer>
+    <p>
+      <a href="./terms.html">شروط الاستخدام</a> ·
+      <a href="./privacy.html">سياسة الخصوصية</a>
+    </p>
+  </footer>
+</div>
+
+</body>
+</html>

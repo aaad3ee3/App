@@ -11,7 +11,12 @@ import '../../theme/app_theme.dart';
 import '../../utils/money.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
-  const OrdersHistoryScreen({super.key});
+  const OrdersHistoryScreen({super.key, this.embedded = false});
+
+  /// True when shown as a tab inside HomeShell, which already supplies the Scaffold and
+  /// the app bar. Pushed as its own route (from the profile screen) it needs both, hence
+  /// the flag rather than two near-identical widgets.
+  final bool embedded;
 
   @override
   State<OrdersHistoryScreen> createState() => _OrdersHistoryScreenState();
@@ -50,23 +55,73 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('طلباتي')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : _orders.isEmpty
-                  ? Center(child: Text('لا توجد طلبات بعد', style: TextStyle(color: Colors.grey.shade600)))
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _orders.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => _OrderTile(order: _orders[index]),
-                      ),
+    final body = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
+            ? _OrdersMessage(
+                icon: Icons.wifi_off_rounded,
+                title: _error!,
+                action: OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+              )
+            : _orders.isEmpty
+                ? _OrdersMessage(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'لا توجد طلبات بعد',
+                    subtitle: 'أول ما تشتري بطاقة أو تطلب خدمة، راح تلقاها هنا مع الكود وحالة الطلب.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _orders.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) => _OrderTile(order: _orders[index]),
                     ),
+                  );
+
+    if (widget.embedded) return body;
+    return Scaffold(appBar: AppBar(title: const Text('طلباتي')), body: body);
+  }
+}
+
+/// Empty/error state for the orders list. An empty orders tab is the first thing a brand
+/// new customer sees after signing up, so it explains what will appear here rather than
+/// leaving them on a bare "no orders" line wondering whether something broke.
+class _OrdersMessage extends StatelessWidget {
+  const _OrdersMessage({required this.icon, required this.title, this.subtitle, this.action});
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56, color: AppColors.gold.withValues(alpha: 0.45)),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13.5),
+              ),
+            ],
+            if (action != null) ...[const SizedBox(height: 16), action!],
+          ],
+        ),
+      ),
     );
   }
 }

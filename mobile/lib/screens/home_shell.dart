@@ -7,6 +7,7 @@ import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sayeh_logo.dart';
 import 'profile_screen.dart';
+import 'store/orders_history_screen.dart';
 import 'store/store_screen.dart';
 import 'wallet/wallet_screen.dart';
 
@@ -21,8 +22,18 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   StreamSubscription<RemoteMessage>? _pushSubscription;
 
-  static const _titles = ['المحفظة', 'المتجر', 'حسابي'];
-  static const _pages = [WalletScreen(), StoreScreen(), ProfileScreen()];
+  // Store first, deliberately. The wallet used to open the app, which put the plumbing
+  // in front of the product — a customer opens this app to buy something, not to look at
+  // a balance. Orders get their own tab for the same reason they do in every store app:
+  // "where is my code" is the single most repeated question, and it was buried two taps
+  // deep inside the profile.
+  static const _titles = ['المتجر', 'طلباتي', 'المحفظة', 'حسابي'];
+  static const _pages = [
+    StoreScreen(),
+    OrdersHistoryScreen(embedded: true),
+    WalletScreen(),
+    ProfileScreen(),
+  ];
 
   @override
   void initState() {
@@ -90,8 +101,9 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
           NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'المتجر'),
+          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'طلباتي'),
+          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),
         ],
       ),

@@ -7,7 +7,6 @@ import '../theme/app_theme.dart';
 import 'auth/delete_account_screen.dart';
 import 'auth/link_phone_screen.dart';
 import 'auth/login_screen.dart';
-import 'store/orders_history_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -85,15 +84,8 @@ class ProfileScreen extends StatelessWidget {
         Card(
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.receipt_long_outlined),
-                title: const Text('طلباتي'),
-                trailing: const Icon(Icons.chevron_left_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OrdersHistoryScreen()),
-                ),
-              ),
-              const Divider(height: 1),
+              // "طلباتي" used to live here; it is a bottom-tab of its own now, so keeping
+              // a duplicate row would just add a second path to the same screen.
               ListTile(
                 leading: Icon(
                   user?.phone != null ? Icons.phone_android_rounded : Icons.phone_disabled_rounded,
@@ -110,6 +102,19 @@ class ProfileScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const LinkPhoneScreen()),
                 ),
               ),
+              // Above the support row on purpose: most questions that reach WhatsApp are
+              // already answered here ("where is my code", "why did my top-up not land"),
+              // so the self-serve answer should be the one a customer meets first.
+              if (config.faqUrl != null) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.help_outline_rounded),
+                  title: const Text('الأسئلة الشائعة'),
+                  subtitle: const Text('إجابات سريعة لأكثر الأسئلة', style: TextStyle(fontSize: 12.5)),
+                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                  onTap: () => _open(context, config.faqUrl),
+                ),
+              ],
               if (config.whatsappUrl != null) ...[
                 const Divider(height: 1),
                 ListTile(

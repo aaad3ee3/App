@@ -19,6 +19,10 @@ export default async function configRoutes(app: FastifyInstance) {
     legal: {
       privacy_url: env.PUBLIC_BASE_URL ? `${env.PUBLIC_BASE_URL}/legal/privacy.html` : null,
       terms_url: env.PUBLIC_BASE_URL ? `${env.PUBLIC_BASE_URL}/legal/terms.html` : null,
+      // Served from the same static folder as the policies. Not legally required like the
+      // other two, but it deflects the support questions that otherwise arrive one by one
+      // over WhatsApp — "where is my code", "why did my top-up not land".
+      faq_url: env.PUBLIC_BASE_URL ? `${env.PUBLIC_BASE_URL}/legal/faq.html` : null,
     },
     // Lets the app show real expectations before purchase instead of leaving the customer
     // guessing whether "a minute" or "a day" is normal.
