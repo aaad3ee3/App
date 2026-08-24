@@ -61,6 +61,16 @@ export async function createOrder(
     throw new HttpError(404, "not_found", "Product not found or unavailable");
   }
 
+  // Browsing already filters to enabled categories (listEnabledCategories), but that
+  // alone doesn't stop a purchase: a client that already has the product id — cached,
+  // deep-linked, or scraped before an admin disabled the category — could otherwise still
+  // buy it. Re-check here so disabling a category actually makes its products unbuyable,
+  // not just invisible.
+  const category = await catalogRepo.getCategoryById(product.category_id);
+  if (!category || !category.enabled) {
+    throw new HttpError(404, "not_found", "Product not found or unavailable");
+  }
+
   let quantity: number;
   let targetLink: string | null;
   let unitPrice: number;

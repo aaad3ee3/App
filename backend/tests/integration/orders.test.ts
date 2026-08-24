@@ -126,6 +126,24 @@ describe("orders engine — purchase flow", () => {
     expect(orders).toHaveLength(0);
   });
 
+  it("rejects an order for a product whose category has been disabled, even with a known product id", async () => {
+    const { user, wallet } = await createTestUser();
+    await creditTestWallet(user.id, wallet.id, 100);
+    const category = await createTestCategory({ kind: "giftcard" });
+    const product = await createTestProduct(category.id, { kind: "giftcard", sellPrice: 25 });
+    await db("categories").where({ id: category.id }).update({ enabled: false });
+
+    await expect(
+      createOrder(user.id, { productId: product.id }, { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER })
+    ).rejects.toMatchObject({ statusCode: 404, code: "not_found" });
+
+    const updatedWallet = await walletRepo.getWalletByUserId(user.id);
+    expect(Number(updatedWallet!.balance)).toBe(100);
+
+    const orders = await db("orders").where({ user_id: user.id });
+    expect(orders).toHaveLength(0);
+  });
+
   it("clean supplier error (a real API response): refunds the wallet and marks the order 'failed'", async () => {
     const { user, wallet } = await createTestUser();
     await creditTestWallet(user.id, wallet.id, 100);
