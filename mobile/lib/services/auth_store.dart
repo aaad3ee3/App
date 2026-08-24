@@ -53,15 +53,40 @@ class AuthStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Step 1 of sign-up: asks the server to text a verification code.
-  ///
-  /// Always succeeds for a well-formed Libyana number, whether or not it is already
-  /// registered — the server deliberately does not reveal which, so the app cannot
-  /// either.
-  Future<bool> requestRegistrationCode(String phone) async {
+  /// Sign-up: email + password, account created and signed in immediately. No SMS round
+  /// trip — a phone number only enters the picture later, when the customer links one to
+  /// fund a top-up (see [requestLinkPhone] / [verifyLinkPhone]).
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String confirmPassword,
+    String? fullName,
+  }) {
+    return _authenticate(
+      () => _api.post(
+        '/auth/register',
+        body: {
+          'email': email,
+          'password': password,
+          'confirm_password': confirmPassword,
+          if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
+        },
+      ),
+    );
+  }
+
+  Future<bool> login({required String email, required String password}) {
+    return _authenticate(() => _api.post('/auth/login', body: {'email': email, 'password': password}));
+  }
+
+  /// Step 1 of linking a Libyana number to the signed-in account: asks the server to
+  /// text a verification code. Requires being signed in already — unlike the old
+  /// phone-registration flow, this proves the number belongs to an existing customer,
+  /// not that it is free to sign up with.
+  Future<bool> requestLinkPhone(String phone) async {
     lastError = null;
     try {
-      await _api.post('/auth/register/start', body: {'phone': phone});
+      await _api.post('/auth/phone/link/request', body: {'phone': phone});
       return true;
     } on ApiException catch (e) {
       lastError = e.message;
@@ -70,28 +95,21 @@ class AuthStore extends ChangeNotifier {
     }
   }
 
-  /// Step 2: verify the code and create the account.
-  Future<bool> completeRegistration({
-    required String phone,
-    required String code,
-    required String password,
-    String? fullName,
-  }) {
-    return _authenticate(
-      () => _api.post(
-        '/auth/register/complete',
-        body: {
-          'phone': phone,
-          'code': code,
-          'password': password,
-          if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
-        },
-      ),
-    );
-  }
-
-  Future<bool> login({required String phone, required String password}) {
-    return _authenticate(() => _api.post('/auth/login', body: {'phone': phone, 'password': password}));
+  /// Step 2: verify the code. On success the number is attached and verified — it stays
+  /// linked to the account from then on, so a customer never has to re-verify it for a
+  /// later top-up.
+  Future<bool> verifyLinkPhone({required String phone, required String code}) async {
+    lastError = null;
+    try {
+      final result = await _api.post('/auth/phone/link/verify', body: {'phone': phone, 'code': code});
+      _user = AppUser.fromJson(result['user'] as Map<String, dynamic>);
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      lastError = e.message;
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> requestPasswordResetCode(String phone) async {

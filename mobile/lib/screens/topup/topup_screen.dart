@@ -6,6 +6,8 @@ import '../../models/topup_request.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/topup_service.dart';
+import '../../theme/app_theme.dart';
+import '../auth/link_phone_screen.dart';
 
 class TopupScreen extends StatefulWidget {
   const TopupScreen({super.key});
@@ -17,7 +19,6 @@ class TopupScreen extends StatefulWidget {
 class _TopupScreenState extends State<TopupScreen> {
   late final TopupService _topupService;
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
   final _amountController = TextEditingController();
 
   TopupRequest? _pending;
@@ -34,9 +35,14 @@ class _TopupScreenState extends State<TopupScreen> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openLinkPhone() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LinkPhoneScreen()));
+    // AuthStore already updated its user on success and notified listeners — this
+    // screen watches it in build(), so nothing further to do here either way.
   }
 
   Future<void> _load() async {
@@ -60,13 +66,15 @@ class _TopupScreenState extends State<TopupScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final phone = context.read<AuthStore>().user?.phone;
+    if (phone == null) return; // build() only shows this form once a phone is linked.
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
       final topup = await _topupService.create(
-        senderPhone: _phoneController.text.trim(),
+        senderPhone: phone,
         amount: double.parse(_amountController.text.trim()),
       );
       if (!mounted) return;
@@ -103,6 +111,7 @@ class _TopupScreenState extends State<TopupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final phone = context.watch<AuthStore>().user?.phone;
     return Scaffold(
       appBar: AppBar(title: const Text('شحن الرصيد')),
       body: SafeArea(
@@ -110,31 +119,56 @@ class _TopupScreenState extends State<TopupScreen> {
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: _pending != null ? _PendingView(topup: _pending!, submitting: _submitting, onCancel: _cancel) : _buildForm(),
+                child: _pending != null
+                    ? _PendingView(topup: _pending!, submitting: _submitting, onCancel: _cancel)
+                    : (phone == null ? _buildLinkPhonePrompt() : _buildForm(phone)),
               ),
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildLinkPhonePrompt() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.phone_android_rounded, size: 56, color: AppColors.gold),
+        const SizedBox(height: 16),
+        Text(
+          'اربط رقم هاتفك أولاً',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'عشان نطابق تحويلك تلقائياً، لازم تربط وتأكّد رقم ليبيانا اللي راح تحول منه — مرة وحدة بس، وبعدها يستخدم لكل عمليات الشحن.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14),
+        ),
+        const SizedBox(height: 24),
+        FilledButton(onPressed: _openLinkPhone, child: const Text('ربط رقم الهاتف')),
+      ],
+    );
+  }
+
+  Widget _buildForm(String phone) {
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'أدخل رقم ليبيانا اللي راح تحول منه والمبلغ، وراح نعطيك تعليمات التحويل.',
+            'أدخل المبلغ، وراح نعطيك تعليمات التحويل من رقمك المرتبط.',
             style: TextStyle(fontSize: 14),
           ),
-          const SizedBox(height: 24),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(labelText: 'رقم ليبيانا (مثال: 0921234567)'),
-            validator: (v) => (v == null || v.trim().length < 9) ? 'أدخل رقم هاتف صحيح' : null,
-          ),
           const SizedBox(height: 16),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.phone_android_rounded),
+            title: Text(phone, textDirection: TextDirection.ltr),
+            subtitle: const Text('رقمك المرتبط'),
+            trailing: TextButton(onPressed: _openLinkPhone, child: const Text('تغيير')),
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),

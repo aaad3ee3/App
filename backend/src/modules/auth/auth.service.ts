@@ -4,12 +4,7 @@ import { DEFAULT_CURRENCY } from "../../config/constants";
 import { generateOpaqueToken, sha256Hex } from "../../lib/crypto";
 import { HttpError } from "../../plugins/error-handler.plugin";
 import * as repo from "./auth.repository";
-import type {
-  AdminLoginInput,
-  CompletePasswordResetInput,
-  CompleteRegistrationInput,
-  LoginInput,
-} from "./auth.schemas";
+import type { AdminLoginInput, CompletePasswordResetInput, LoginInput, RegisterInput } from "./auth.schemas";
 import type { UserRow } from "../../db/types";
 import * as otp from "./otp.service";
 
@@ -38,52 +33,56 @@ async function issueSession(userId: string, meta: SessionMeta): Promise<string> 
   return token;
 }
 
-/**
- * Step 1 of sign-up: send a code to the phone.
- *
- * Responds identically whether or not the number already has an account. Otherwise this
- * endpoint becomes a way to test which phone numbers are registered customers.
- */
-export async function startRegistration(phone: string): Promise<void> {
-  const existing = await repo.findUserByPhone(phone);
+/** Creates the account and signs in. No SMS round trip — see completeLinkPhone for how a
+ * phone number gets attached (and verified) once the customer actually wants to top up. */
+export async function register(input: RegisterInput, meta: SessionMeta) {
+  const existing = await repo.findUserByEmail(input.email);
   if (existing) {
-    // Silently skip sending: telling the caller "already registered" leaks membership,
-    // and sending a code to someone who did not ask is itself a nuisance vector.
-    return;
+    throw new HttpError(409, "email_taken", "هذا البريد مستخدم بالفعل. سجّل الدخول أو استعد كلمة المرور.");
   }
-  await otp.issueCode(phone, "register");
-}
-
-/** Step 2: verify the code, create the account, and sign in. */
-export async function completeRegistration(input: CompleteRegistrationInput, meta: SessionMeta) {
-  const existing = await repo.findUserByPhone(input.phone);
-  if (existing) {
-    throw new HttpError(409, "phone_taken", "هذا الرقم مسجّل بالفعل. سجّل الدخول أو استعد كلمة المرور.");
-  }
-
-  if (input.email) {
-    const emailOwner = await repo.findUserByEmail(input.email);
-    if (emailOwner) {
-      throw new HttpError(409, "email_taken", "هذا البريد مستخدم بالفعل.");
-    }
-  }
-
-  await otp.consumeCode(input.phone, "register", input.code);
 
   const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
   const user = await repo.createUserWithWallet(
-    {
-      phone: input.phone,
-      email: input.email ?? null,
-      passwordHash,
-      fullName: input.full_name ?? null,
-      phoneVerifiedAt: new Date(),
-    },
+    { email: input.email, passwordHash, fullName: input.full_name ?? null },
     DEFAULT_CURRENCY
   );
 
   const token = await issueSession(user.id, meta);
   return { token, user: publicUser(user) };
+}
+
+/**
+ * Step 1 of linking a phone number to an already-signed-in account: send it a code.
+ *
+ * Refuses up front if the number is already linked to a *different* account — silently
+ * accepting and then failing at verify time would make the customer type a whole code
+ * only to hit a wall. Re-linking your own already-linked number is harmless and allowed.
+ */
+export async function requestLinkPhone(userId: string, phone: string): Promise<void> {
+  const owner = await repo.findUserByPhone(phone);
+  if (owner && owner.id !== userId) {
+    throw new HttpError(409, "phone_taken", "هذا الرقم مرتبط بحساب آخر بالفعل.");
+  }
+  await otp.issueCode(phone, "link");
+}
+
+/** Step 2: verify the code and attach the number to the caller's account. */
+export async function completeLinkPhone(userId: string, phone: string, code: string) {
+  await otp.consumeCode(phone, "link", code);
+
+  try {
+    const user = await repo.setUserPhone(userId, phone);
+    return publicUser(user);
+  } catch (err) {
+    const pgErr = err as { code?: string };
+    if (pgErr.code === "23505") {
+      // Lost a race against someone else linking the same number between the request
+      // and verify steps — vanishingly rare, but the unique index is what actually
+      // prevents two accounts from sharing a top-up-funding number.
+      throw new HttpError(409, "phone_taken", "هذا الرقم ارتبط بحساب آخر للتو. جرّب رقماً آخر.");
+    }
+    throw err;
+  }
 }
 
 /**
@@ -115,8 +114,8 @@ async function verifyPasswordLogin(user: UserRow, password: string, invalidMessa
 }
 
 export async function login(input: LoginInput, meta: SessionMeta) {
-  const invalidMessage = "رقم الهاتف أو كلمة المرور غير صحيحة";
-  const user = await repo.findUserByPhone(input.phone);
+  const invalidMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+  const user = await repo.findUserByEmail(input.email);
   if (!user) {
     throw new HttpError(401, "invalid_credentials", invalidMessage);
   }

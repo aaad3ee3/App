@@ -5,6 +5,7 @@ import '../services/app_config.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
 import 'auth/delete_account_screen.dart';
+import 'auth/link_phone_screen.dart';
 import 'auth/login_screen.dart';
 import 'store/orders_history_screen.dart';
 
@@ -67,9 +68,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        // Phone is the identity now, so it is what the customer expects
-                        // to see here — the number they sign in with.
-                        user?.phone ?? '',
+                        // Email is the identity — the address the customer signs in with.
+                        user?.email ?? '',
                         textDirection: TextDirection.ltr,
                         style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
@@ -91,6 +91,23 @@ class ProfileScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_left_rounded),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const OrdersHistoryScreen()),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  user?.phone != null ? Icons.phone_android_rounded : Icons.phone_disabled_rounded,
+                  color: user?.phone != null ? AppColors.success : null,
+                ),
+                title: const Text('رقم الشحن'),
+                subtitle: Text(
+                  user?.phone ?? 'ما ربطت رقم بعد',
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+                trailing: const Icon(Icons.chevron_left_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LinkPhoneScreen()),
                 ),
               ),
               if (config.whatsappUrl != null) ...[

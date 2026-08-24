@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_store.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/phone_field.dart';
 import '../../widgets/sayeh_logo.dart';
 import '../home_shell.dart';
 import 'forgot_password_screen.dart';
@@ -17,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _submitting = false;
   bool _obscure = true;
@@ -25,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -39,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthStore>();
     final ok = await auth.login(
-      phone: _phoneController.text.trim(),
+      email: _emailController.text.trim(),
       password: _passwordController.text,
     );
 
@@ -76,7 +75,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 24),
-                    PhoneField(controller: _phoneController, enabled: !_submitting, autofocus: true),
+                    TextFormField(
+                      controller: _emailController,
+                      enabled: !_submitting,
+                      autofocus: true,
+                      keyboardType: TextInputType.emailAddress,
+                      textDirection: TextDirection.ltr,
+                      decoration: const InputDecoration(
+                        labelText: 'البريد الإلكتروني',
+                        prefixIcon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل بريدك الإلكتروني' : null,
+                    ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _passwordController,

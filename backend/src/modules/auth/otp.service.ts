@@ -5,7 +5,7 @@ import { sha256Hex } from "../../lib/crypto";
 import { getSmsSender } from "../../lib/sms-sender";
 import { HttpError } from "../../plugins/error-handler.plugin";
 
-export type OtpPurpose = "register" | "reset";
+export type OtpPurpose = "register" | "reset" | "link";
 
 interface VerificationRow {
   id: string;
@@ -28,9 +28,13 @@ function generateCode(): string {
 }
 
 function messageFor(purpose: OtpPurpose, code: string): string {
-  return purpose === "register"
-    ? `رمز تفعيل حسابك في سايح: ${code}\nلا تشاركه مع أي شخص.`
-    : `رمز استعادة كلمة المرور في سايح: ${code}\nلا تشاركه مع أي شخص. إذا لم تطلبه، تجاهل هذه الرسالة.`;
+  if (purpose === "register") {
+    return `رمز تفعيل حسابك في سايح: ${code}\nلا تشاركه مع أي شخص.`;
+  }
+  if (purpose === "link") {
+    return `رمز ربط رقم هاتفك في سايح: ${code}\nلا تشاركه مع أي شخص. إذا لم تطلبه، تجاهل هذه الرسالة.`;
+  }
+  return `رمز استعادة كلمة المرور في سايح: ${code}\nلا تشاركه مع أي شخص. إذا لم تطلبه، تجاهل هذه الرسالة.`;
 }
 
 /**

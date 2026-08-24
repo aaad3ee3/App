@@ -20,22 +20,18 @@ export function findUserById(id: string, trx: Knex | Knex.Transaction = db): Pro
 
 export async function createUserWithWallet(
   input: {
-    phone: string;
-    email: string | null;
+    email: string;
     passwordHash: string;
     fullName: string | null;
-    phoneVerifiedAt: Date | null;
   },
   currency: string
 ): Promise<UserRow> {
   return db.transaction(async (trx) => {
     const [user] = await trx<UserRow>("users")
       .insert({
-        phone: input.phone,
         email: input.email,
         password_hash: input.passwordHash,
         full_name: input.fullName,
-        phone_verified_at: input.phoneVerifiedAt,
       })
       .returning("*");
     if (!user) throw new Error("Failed to create user");
@@ -44,6 +40,19 @@ export async function createUserWithWallet(
 
     return user;
   });
+}
+
+/**
+ * Attaches a verified Libyana number to an already-signed-up account. This is the only
+ * place `users.phone` is ever set — see auth.service.ts `completeLinkPhone`.
+ */
+export async function setUserPhone(userId: string, phone: string): Promise<UserRow> {
+  const [user] = await db<UserRow>("users")
+    .where({ id: userId })
+    .update({ phone, phone_verified_at: new Date(), updated_at: new Date() })
+    .returning("*");
+  if (!user) throw new Error("Failed to update user");
+  return user;
 }
 
 export function createSession(
@@ -150,13 +159,17 @@ export async function countUnsettledOrders(userId: string): Promise<number> {
  * personal data, frees the phone number for re-registration (the unique index ignores
  * nulls), and makes the account permanently unusable — while the ledger keeps pointing
  * at an account with no identity attached.
+ *
+ * `email` stays NOT NULL at the schema level, so it gets a placeholder tied to the
+ * user's own id instead of null — unique by construction, and `.invalid` (RFC 2606) so
+ * nothing ever mistakes it for a deliverable address.
  */
 export async function anonymizeUser(userId: string): Promise<void> {
   await db.transaction(async (trx) => {
     await trx("users").where({ id: userId }).update({
       phone: null,
       phone_verified_at: null,
-      email: null,
+      email: `deleted-${userId}@deleted.invalid`,
       full_name: null,
       // Argon2 never produces this, so no password can ever verify against it again.
       password_hash: "deleted",

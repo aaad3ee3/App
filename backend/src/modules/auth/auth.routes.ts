@@ -5,11 +5,12 @@ import { keyByUser } from "../../plugins/rate-limit.plugin";
 import { findUserById } from "./auth.repository";
 import {
   completePasswordResetSchema,
-  completeRegistrationSchema,
   deleteAccountSchema,
+  linkPhoneRequestSchema,
+  linkPhoneVerifySchema,
   loginSchema,
+  registerSchema,
   requestPasswordResetSchema,
-  startRegistrationSchema,
 } from "./auth.schemas";
 import * as authService from "./auth.service";
 
@@ -27,19 +28,11 @@ const codeRequestLimit = {
 };
 
 export default async function authRoutes(app: FastifyInstance) {
-  // --- Registration (two steps: request a code, then verify it) ---
+  // --- Registration: email + password, no SMS round trip ---
 
-  app.post("/register/start", { config: codeRequestLimit }, async (request, reply) => {
-    const { phone } = startRegistrationSchema.parse(request.body);
-    await authService.startRegistration(phone);
-    // Always 202, registered or not — a different response here would reveal which
-    // numbers already have accounts.
-    reply.status(202).send({ ok: true });
-  });
-
-  app.post("/register/complete", { config: codeRequestLimit }, async (request, reply) => {
-    const input = completeRegistrationSchema.parse(request.body);
-    const result = await authService.completeRegistration(input, sessionMeta(request));
+  app.post("/register", { config: codeRequestLimit }, async (request, reply) => {
+    const input = registerSchema.parse(request.body);
+    const result = await authService.register(input, sessionMeta(request));
     reply.status(201).send(result);
   });
 
@@ -50,6 +43,28 @@ export default async function authRoutes(app: FastifyInstance) {
       const input = loginSchema.parse(request.body);
       const result = await authService.login(input, sessionMeta(request));
       reply.send(result);
+    }
+  );
+
+  // --- Linking a phone number (funds top-ups once verified) ---
+
+  app.post(
+    "/phone/link/request",
+    { preHandler: app.authenticate, config: codeRequestLimit },
+    async (request, reply) => {
+      const { phone } = linkPhoneRequestSchema.parse(request.body);
+      await authService.requestLinkPhone(request.user!.id, phone);
+      reply.status(202).send({ ok: true });
+    }
+  );
+
+  app.post(
+    "/phone/link/verify",
+    { preHandler: app.authenticate, config: codeRequestLimit },
+    async (request, reply) => {
+      const { phone, code } = linkPhoneVerifySchema.parse(request.body);
+      const user = await authService.completeLinkPhone(request.user!.id, phone, code);
+      reply.send({ user });
     }
   );
 

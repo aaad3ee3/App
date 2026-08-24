@@ -1,11 +1,11 @@
 class AppUser {
   final String id;
 
-  /// The account's identity and sign-in credential. Nullable only for accounts created
-  /// before phone auth shipped, which sign in by email until they add a number.
+  /// Set only once the customer links and verifies a Libyana number — see
+  /// LinkPhoneScreen. Required to top up; not required to use the rest of the app.
   final String? phone;
 
-  /// Optional since phone became the identity — many customers have no email at all.
+  /// The account's identity and sign-in credential.
   final String? email;
 
   final String? fullName;

@@ -31,25 +31,46 @@ const password = z.string().min(12, "كلمة المرور يجب أن تكون 
 
 const code = z.string().trim().regex(/^\d{6}$/, "الرمز مكوّن من 6 أرقام");
 
-export const startRegistrationSchema = z.object({
-  phone: libyanaPhone,
-});
-export type StartRegistrationInput = z.infer<typeof startRegistrationSchema>;
-
-export const completeRegistrationSchema = z.object({
-  phone: libyanaPhone,
-  code,
-  password,
-  full_name: z.string().trim().min(1).max(200).optional(),
-  email: z.string().trim().toLowerCase().email().optional(),
-});
-export type CompleteRegistrationInput = z.infer<typeof completeRegistrationSchema>;
+/**
+ * Sign-up is email + password now — no SMS round trip to create an account. A phone
+ * number only enters the picture later, when the customer links one to fund top-ups
+ * (see phoneLink*Schema below), because that is the only place a Libyana number is
+ * actually load-bearing.
+ */
+export const registerSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("أدخل بريداً إلكترونياً صحيحاً"),
+    password,
+    confirm_password: z.string(),
+    full_name: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "كلمتا المرور غير متطابقتين",
+    path: ["confirm_password"],
+  });
+export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  phone: libyanaPhone,
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
+
+/**
+ * Linking a phone is how a signed-in customer proves a Libyana number is really theirs,
+ * so top-up transfers from it can be matched to their account. Two steps, same shape as
+ * the old registration flow: request a code, then confirm it.
+ */
+export const linkPhoneRequestSchema = z.object({
+  phone: libyanaPhone,
+});
+export type LinkPhoneRequestInput = z.infer<typeof linkPhoneRequestSchema>;
+
+export const linkPhoneVerifySchema = z.object({
+  phone: libyanaPhone,
+  code,
+});
+export type LinkPhoneVerifyInput = z.infer<typeof linkPhoneVerifySchema>;
 
 /** Admin dashboard staff sign in by email, not phone — they are not necessarily Libyana
  * customers, and requiring one would tie internal tooling access to a carrier account. */
