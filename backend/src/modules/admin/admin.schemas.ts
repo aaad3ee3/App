@@ -43,6 +43,13 @@ export const setCategoryEnabledSchema = z.object({
   enabled: z.boolean(),
 });
 
+export const updateCategoryImageSchema = z.object({
+  // An empty string is a deliberate valid input — it clears the override (see
+  // catalogRepo.updateCategoryImage) — so this isn't .url(); actual URL validation
+  // happens in sanitizeImageUrl at the repository choke point.
+  image: z.string().trim().max(2000),
+});
+
 export const updateProductAdminSchema = z.object({
   sell_price: z.coerce.number().positive().optional(),
   available: z.boolean().optional(),

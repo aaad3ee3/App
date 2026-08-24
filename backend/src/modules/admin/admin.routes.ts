@@ -15,6 +15,7 @@ import {
   resolveOrderSchema,
   resolveSmsEventSchema,
   setCategoryEnabledSchema,
+  updateCategoryImageSchema,
   updateProductAdminSchema,
 } from "./admin.schemas";
 import * as adminService from "./admin.service";
@@ -100,6 +101,12 @@ export default async function adminRoutes(app: FastifyInstance) {
     const { id } = idParamSchema.parse(request.params);
     const { enabled } = setCategoryEnabledSchema.parse(request.body);
     return adminService.setCategoryEnabled(request.user!.id, id, enabled);
+  });
+
+  app.post("/catalog/categories/:id/image", async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const { image } = updateCategoryImageSchema.parse(request.body);
+    return adminService.updateCategoryImage(request.user!.id, id, image);
   });
 
   app.post("/catalog/products/:id", async (request) => {

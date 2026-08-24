@@ -161,44 +161,16 @@ export function CatalogPage() {
               </thead>
               <tbody>
                 {categories.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      {c.image ? (
-                        <img
-                          src={c.image}
-                          alt=""
-                          width={32}
-                          height={32}
-                          style={{ borderRadius: 6, objectFit: "cover" }}
-                          onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
-                        />
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>{c.name}</td>
-                    <td>{c.kind === "giftcard" ? "بطاقة" : "متابعين/خدمة"}</td>
-                    <td>{c.supplier}</td>
-                    <td>{c.enabled ? "نعم" : "لا"}</td>
-                    <td>
-                      <button
-                        className={`btn btn-sm ${c.enabled ? "btn-outline" : ""}`}
-                        onClick={() => toggleCategory(c)}
-                      >
-                        {c.enabled ? "تعطيل" : "تفعيل"}
-                      </button>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        style={{ marginInlineStart: 6 }}
-                        onClick={() => {
-                          setCategoryFilter(c.id);
-                          setTab("products");
-                        }}
-                      >
-                        عرض المنتجات
-                      </button>
-                    </td>
-                  </tr>
+                  <CategoryRowView
+                    key={c.id}
+                    category={c}
+                    onToggle={() => toggleCategory(c)}
+                    onShowProducts={() => {
+                      setCategoryFilter(c.id);
+                      setTab("products");
+                    }}
+                    onChanged={() => setRefreshKey((k) => k + 1)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -243,6 +215,110 @@ export function CatalogPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function CategoryRowView({
+  category,
+  onToggle,
+  onShowProducts,
+  onChanged,
+}: {
+  category: CategoryRow;
+  onToggle: () => void;
+  onShowProducts: () => void;
+  onChanged: () => void;
+}) {
+  const [editingImage, setEditingImage] = useState(false);
+  const [imageUrl, setImageUrl] = useState(category.image ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveImage = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post(`/admin/catalog/categories/${category.id}/image`, { image: imageUrl.trim() });
+      setEditingImage(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "حدث خطأ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <tr>
+      <td>
+        {category.image ? (
+          <img
+            src={category.image}
+            alt=""
+            width={32}
+            height={32}
+            style={{ borderRadius: 6, objectFit: "cover" }}
+            onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+          />
+        ) : (
+          "—"
+        )}
+      </td>
+      <td>{category.name}</td>
+      <td>{category.kind === "giftcard" ? "بطاقة" : "متابعين/خدمة"}</td>
+      <td>{category.supplier}</td>
+      <td>{category.enabled ? "نعم" : "لا"}</td>
+      <td>
+        {editingImage ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 220 }}>
+            <input
+              type="text"
+              placeholder="رابط الصورة"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              style={{ width: "100%" }}
+            />
+            <div>
+              <button className="btn btn-sm" onClick={saveImage} disabled={busy}>
+                حفظ
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ marginInlineStart: 6 }}
+                onClick={() => {
+                  setEditingImage(false);
+                  setImageUrl(category.image ?? "");
+                  setError(null);
+                }}
+              >
+                إلغاء
+              </button>
+            </div>
+            {error && (
+              <div className="error-text" aria-live="polite">
+                {error}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <button className={`btn btn-sm ${category.enabled ? "btn-outline" : ""}`} onClick={onToggle}>
+              {category.enabled ? "تعطيل" : "تفعيل"}
+            </button>
+            <button className="btn btn-outline btn-sm" style={{ marginInlineStart: 6 }} onClick={onShowProducts}>
+              عرض المنتجات
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ marginInlineStart: 6 }}
+              onClick={() => setEditingImage(true)}
+            >
+              {category.image ? "تعديل الصورة" : "إضافة صورة"}
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
   );
 }
 

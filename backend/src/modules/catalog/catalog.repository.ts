@@ -26,6 +26,12 @@ export interface UpsertCategoryInput {
  * expression unique index in the categories migration. Deliberately does NOT touch
  * `enabled`/`sort_order` on conflict so admin overrides survive repeated syncs.
  *
+ * `image` is COALESCEd rather than overwritten outright: most suppliers only provide an
+ * image for a handful of categories, so an admin filling the rest in by hand (see
+ * updateCategoryImage) needs that to stick across every future sync, not get wiped the
+ * next time the button is pressed. A category with no image yet — admin or supplier —
+ * still picks up the supplier's image the moment one becomes available.
+ *
  * Name and image are sanitized here rather than at the call site: this function and
  * upsertProduct are the only ways supplier data enters the catalog tables, so cleaning
  * them here means no future sync path can accidentally skip it.
@@ -35,7 +41,7 @@ export async function upsertCategory(input: UpsertCategoryInput): Promise<string
     `INSERT INTO categories (kind, supplier, supplier_category_ref, name, image)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (supplier, COALESCE(supplier_category_ref, name))
-     DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image, updated_at = now()
+     DO UPDATE SET name = EXCLUDED.name, image = COALESCE(categories.image, EXCLUDED.image), updated_at = now()
      RETURNING id`,
     [
       input.kind,
@@ -198,6 +204,18 @@ export async function listAllProductsAdmin(categoryId?: string): Promise<Product
 
 export function setCategoryEnabled(id: string, enabled: boolean): Promise<number> {
   return db("categories").where({ id }).update({ enabled, updated_at: new Date() });
+}
+
+/**
+ * Manual admin override for a category's image — most categories arrive from a supplier
+ * with no image at all (Libya Play only sends real images for a handful; Plus's synthetic
+ * categories never have one), so this fills the gap by hand. Sanitized the same as a
+ * supplier-sourced image, and safe from being wiped by the next sync: see the COALESCE in
+ * upsertCategory above. An empty string clears it back to null, which lets a future sync
+ * fill it in from the supplier again.
+ */
+export function updateCategoryImage(id: string, image: string | null): Promise<number> {
+  return db("categories").where({ id }).update({ image: sanitizeImageUrl(image), updated_at: new Date() });
 }
 
 export function updateProductOverride(

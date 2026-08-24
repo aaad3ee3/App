@@ -201,6 +201,13 @@ export async function setCategoryEnabled(adminId: string, categoryId: string, en
   return { ok: true };
 }
 
+export async function updateCategoryImage(adminId: string, categoryId: string, image: string) {
+  const updated = await catalogRepo.updateCategoryImage(categoryId, image);
+  if (!updated) throw new HttpError(404, "not_found", "Category not found");
+  await adminRepo.logAction({ adminUserId: adminId, action: "update_category_image", targetType: "product", targetId: categoryId, details: { image } });
+  return { ok: true };
+}
+
 export async function updateProductAdmin(
   adminId: string,
   productId: string,
