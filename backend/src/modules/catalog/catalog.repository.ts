@@ -110,10 +110,31 @@ export async function upsertProduct(input: UpsertProductInput): Promise<string> 
   return rows[0]!.id;
 }
 
-export function listEnabledCategories(kind?: ProductKind): Promise<CategoryRow[]> {
-  const query = db<CategoryRow>("categories").where({ enabled: true });
-  if (kind) query.andWhere({ kind });
-  return query.orderBy([{ column: "sort_order" }, { column: "name" }]);
+export interface CategoryWithProductCount extends CategoryRow {
+  /** Counts available products only — an empty category should read as empty, not as
+   *  however many hidden rows it happens to hold. */
+  product_count: number;
+}
+
+export function listEnabledCategories(kind?: ProductKind): Promise<CategoryWithProductCount[]> {
+  const query = db<CategoryRow>("categories as c")
+    // Joined on availability rather than filtered in a WHERE: a WHERE clause would turn
+    // the LEFT JOIN into an inner one and drop every category that currently has nothing
+    // available, which is exactly the case the count exists to show.
+    .leftJoin("products as p", function () {
+      this.on("p.category_id", "=", "c.id").andOnVal("p.available", "=", true);
+    })
+    .where("c.enabled", true)
+    .groupBy("c.id")
+    .select("c.*")
+    // ::int because Postgres COUNT returns bigint, which node-postgres hands back as a
+    // string — the app would render "12" fine but compare it wrongly.
+    .select(db.raw("COUNT(p.id)::int as product_count"))
+    .orderBy("c.sort_order")
+    .orderBy("c.name");
+
+  if (kind) query.andWhere("c.kind", kind);
+  return query as unknown as Promise<CategoryWithProductCount[]>;
 }
 
 export function getCategoryById(id: string, trx: Knex | Knex.Transaction = db): Promise<CategoryRow | undefined> {

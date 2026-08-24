@@ -349,13 +349,30 @@ class _CategoryCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 11, 10, 12),
-              child: Text(
-                category.name,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 11),
+              child: Column(
+                children: [
+                  Text(
+                    category.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  // Tells the customer there is something behind the tile before they
+                  // spend a tap finding out. Hidden at zero rather than showing "0 منتج",
+                  // which advertises an empty shelf.
+                  if (category.productCount > 0) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '${category.productCount} منتج',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

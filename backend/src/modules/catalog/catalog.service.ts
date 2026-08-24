@@ -19,7 +19,13 @@ function toProductView(p: ProductRow) {
 
 export async function listCategories(kind?: ProductKind) {
   const rows = await repo.listEnabledCategories(kind);
-  return rows.map((r) => ({ id: r.id, kind: r.kind, name: r.name, image: r.image }));
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    name: r.name,
+    image: r.image,
+    product_count: r.product_count,
+  }));
 }
 
 export async function listProducts(categoryId: string) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/app_config.dart';
 import '../services/auth_store.dart';
+import '../services/settings_store.dart';
 import '../theme/app_theme.dart';
 import 'auth/delete_account_screen.dart';
 import 'auth/link_phone_screen.dart';
@@ -34,6 +35,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthStore>().user;
     final config = context.watch<AppConfigStore>().config;
+    final settings = context.watch<SettingsStore>();
     final initial = (user?.fullName?.isNotEmpty == true ? user!.fullName![0] : 'م').toUpperCase();
 
     return ListView(
@@ -126,6 +128,24 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          child: SwitchListTile(
+            secondary: Icon(settings.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded),
+            title: const Text('الوضع الليلي'),
+            subtitle: Text(
+              settings.isDark ? 'مفعّل' : 'مطفي',
+              style: const TextStyle(fontSize: 12.5),
+            ),
+            value: settings.isDark,
+            // Writes an explicit light/dark choice rather than ever returning to
+            // ThemeMode.system: once someone has touched this switch, following the phone
+            // setting behind their back would just look like the app changing on its own.
+            onChanged: (on) =>
+                context.read<SettingsStore>().setThemeMode(on ? ThemeMode.dark : ThemeMode.light),
           ),
         ),
         const SizedBox(height: 16),

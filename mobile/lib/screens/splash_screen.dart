@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/app_config.dart';
 import '../services/auth_store.dart';
+import '../services/settings_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sayeh_logo.dart';
 import 'auth/login_screen.dart';
 import 'home_shell.dart';
+import 'onboarding_screen.dart';
 import 'update_required_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -36,6 +38,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _bootstrap() async {
     final auth = context.read<AuthStore>();
     final appConfig = context.read<AppConfigStore>();
+    final settings = context.read<SettingsStore>();
+    // Already kicked off in main() so the first frame is themed; awaited here because the
+    // routing decision below depends on the onboarding flag it loads.
+    await settings.load();
     // Restoring the session is usually instant, which makes the logo flash by. Hold the
     // splash for a beat so the brand registers instead of stuttering. appConfig.load()
     // is awaited here too (not just fired at app start) so the update check is settled
@@ -49,10 +55,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     // Checked before authentication, and wins regardless of it — a customer on a
     // retired build should not reach a signed-in screen just because they were already
-    // logged in.
-    final next = appConfig.updateRequired
-        ? const UpdateRequiredScreen()
-        : (auth.isAuthenticated ? const HomeShell() : const LoginScreen());
+    // logged in. The intro comes next, but only for someone with no session: a returning
+    // customer who reinstalled should land where they left off, not sit through slides.
+    final Widget next;
+    if (appConfig.updateRequired) {
+      next = const UpdateRequiredScreen();
+    } else if (auth.isAuthenticated) {
+      next = const HomeShell();
+    } else if (!settings.onboardingSeen) {
+      next = const OnboardingScreen();
+    } else {
+      next = const LoginScreen();
+    }
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

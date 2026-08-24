@@ -141,8 +141,9 @@ describe("catalog search", () => {
     expect((await search("q=UC&limit=1")).json().items).toHaveLength(1);
   });
 
-  it("requires a session", async () => {
+  it("works without a session, so a visitor can search before signing up", async () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/catalog/search?q=UC" });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().items.length).toBeGreaterThan(0);
   });
 });

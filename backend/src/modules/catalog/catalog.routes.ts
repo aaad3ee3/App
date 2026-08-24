@@ -13,9 +13,18 @@ const searchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(30),
 });
 
+/**
+ * Browsing the catalog is deliberately public — no session required.
+ *
+ * A customer who cannot see what is sold, or what it costs, before creating an account
+ * has no reason to create one. Nothing here is private: it is the shop window, and the
+ * same prices are printed on the competitor's public app.
+ *
+ * Buying is a different matter and stays authenticated — see orders.routes.ts. The
+ * per-route limits below still hold for anonymous callers because `keyByUser` falls back
+ * to the request IP when there is no session (see rate-limit.plugin.ts).
+ */
 export default async function catalogRoutes(app: FastifyInstance) {
-  app.addHook("onRequest", app.authenticate);
-
   app.get("/categories", async (request) => {
     const { kind } = listCategoriesQuerySchema.parse(request.query);
     return { items: await catalogService.listCategories(kind) };

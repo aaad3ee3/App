@@ -108,10 +108,30 @@ describe("security", () => {
   it("rejects unauthenticated access to user and admin endpoints", async () => {
     app = await buildTestApp();
 
-    for (const url of ["/api/v1/orders", "/api/v1/wallet", "/api/v1/admin/users", "/api/v1/catalog/categories"]) {
+    for (const url of ["/api/v1/orders", "/api/v1/wallet", "/api/v1/admin/users"]) {
       const response = await app.inject({ method: "GET", url });
       expect(response.statusCode, `${url} should require auth`).toBe(401);
     }
+  });
+
+  it("leaves the catalog readable without a session, but not buyable", async () => {
+    app = await buildTestApp();
+
+    // The shop window is public on purpose (see catalog.routes.ts) — a customer who
+    // cannot see the prices has no reason to sign up.
+    for (const url of ["/api/v1/catalog/categories", "/api/v1/catalog/search?q=UC"]) {
+      const response = await app.inject({ method: "GET", url });
+      expect(response.statusCode, `${url} should be public`).toBe(200);
+    }
+
+    // Spending money is not. This is the line that matters: opening up browsing must not
+    // have opened up ordering with it.
+    const order = await app.inject({
+      method: "POST",
+      url: "/api/v1/orders",
+      payload: { product_id: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(order.statusCode).toBe(401);
   });
 
   it("rejects a non-admin user on admin endpoints", async () => {
