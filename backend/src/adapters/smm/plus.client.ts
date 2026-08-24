@@ -111,9 +111,12 @@ export class PlusClient {
     return result.services.map((s) => ({
       serviceId: s.service_id,
       name: s.name,
-      min: s.min,
-      max: s.max,
-      pricePer1000Usd: s.price_per_1000_usd,
+      // Coerced defensively — Libya Play's API is confirmed to send numeric-looking
+      // fields as strings sometimes despite its docs, and there's no reason to trust
+      // Plus's shape any more than that.
+      min: Number(s.min),
+      max: Number(s.max),
+      pricePer1000Usd: Number(s.price_per_1000_usd),
     }));
   }
 

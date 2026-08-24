@@ -209,7 +209,10 @@ export class LibyaPlayClient {
       name: p.name,
       description: p.description,
       image: p.image,
-      price: p.price,
+      // Confirmed at runtime to sometimes arrive as a numeric string despite the docs'
+      // declared type — coerce here rather than trust the wire shape, same reasoning as
+      // the `available` coercion right below.
+      price: Number(p.price),
       available: Boolean(p.available),
       currencyCode: p.currency_code,
       proType: p.pro_type === "auto" ? "auto" : "digt",

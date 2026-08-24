@@ -83,8 +83,12 @@ export async function upsertProduct(input: UpsertProductInput): Promise<string> 
     name: sanitizeName(input.name, input.supplierProductRef, 300),
     description: sanitizeText(input.description, 1000),
     image: sanitizeImageUrl(input.image),
-    cost_price: input.costPrice.toFixed(4),
-    sell_price: input.sellPrice.toFixed(4),
+    // Number(...) here for the same reason name/image are sanitized here: this is the
+    // single choke point all supplier data passes through, and at least one supplier is
+    // confirmed to send price fields as numeric strings despite its documented type —
+    // .toFixed() throws on a string, so trusting the declared TS type isn't enough.
+    cost_price: Number(input.costPrice).toFixed(4),
+    sell_price: Number(input.sellPrice).toFixed(4),
     currency: input.currency,
     price_per_1000: input.pricePer1000,
     min_quantity: input.minQuantity,
