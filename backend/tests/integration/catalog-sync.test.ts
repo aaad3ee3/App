@@ -1,8 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../src/db/knex";
 import * as catalogRepo from "../../src/modules/catalog/catalog.repository";
-import { syncPlus } from "../../src/modules/catalog/catalog-sync.service";
+import { syncLibyaPlay, syncPlus } from "../../src/modules/catalog/catalog-sync.service";
 import type { SmmService, SmmSupplierAdapter } from "../../src/adapters/smm/smm-supplier.interface";
+import type {
+  GiftCardCategory,
+  GiftCardSupplierAdapter,
+} from "../../src/adapters/giftcards/giftcard-supplier.interface";
 import { createTestCategory, resetDb } from "../helpers";
 
 function mockPlusAdapter(services: SmmService[]): SmmSupplierAdapter {
@@ -10,6 +14,17 @@ function mockPlusAdapter(services: SmmService[]): SmmSupplierAdapter {
     listServices: () => Promise.resolve(services),
     addOrder: () => Promise.reject(new Error("not used in these tests")),
     getOrderStatus: () => Promise.reject(new Error("not used in these tests")),
+  };
+}
+
+function mockLibyaPlayAdapter(categories: GiftCardCategory[]): GiftCardSupplierAdapter {
+  return {
+    listCategories: () => Promise.resolve(categories),
+    // Every category gets one sub-category with no products, purely to exercise the
+    // category-upsert (and its icon fallback) without needing product-level fixtures.
+    listSubCategories: () => Promise.resolve([]),
+    listProducts: () => Promise.resolve([]),
+    purchase: () => Promise.reject(new Error("not used in these tests")),
   };
 }
 
@@ -113,6 +128,44 @@ describe("catalog sync — re-syncing never wipes an admin-set category image", 
     const categories = await catalogRepo.listAllCategoriesAdmin();
     const category = categories.find((c) => c.id === categoryId);
     expect(category!.image).toBe("https://cdn.libyaplay.com/psn.png");
+  });
+});
+
+describe("catalog sync — Libya Play categories fall back to a matched brand icon", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("uses the brand icon when Libya Play sends no image", async () => {
+    await syncLibyaPlay(
+      mockLibyaPlayAdapter([{ id: "cat-1", name: "بطاقات نتفلكس", image: "", type: "cards" }])
+    );
+
+    const categories = await catalogRepo.listAllCategoriesAdmin();
+    const netflix = categories.find((c) => c.name === "بطاقات نتفلكس");
+    expect(netflix!.image).toBe("https://cdn.simpleicons.org/netflix/E50914");
+  });
+
+  it("keeps the supplier's real image over a guessed one when both exist", async () => {
+    await syncLibyaPlay(
+      mockLibyaPlayAdapter([
+        { id: "cat-2", name: "بطاقات نتفلكس", image: "https://cdn.libyaplay.com/netflix-real.png", type: "cards" },
+      ])
+    );
+
+    const categories = await catalogRepo.listAllCategoriesAdmin();
+    const netflix = categories.find((c) => c.name === "بطاقات نتفلكس");
+    expect(netflix!.image).toBe("https://cdn.libyaplay.com/netflix-real.png");
+  });
+
+  it("leaves an unrecognized category's image blank rather than guessing", async () => {
+    await syncLibyaPlay(
+      mockLibyaPlayAdapter([{ id: "cat-3", name: "مملكة الصحراء", image: "", type: "games" }])
+    );
+
+    const categories = await catalogRepo.listAllCategoriesAdmin();
+    const category = categories.find((c) => c.name === "مملكة الصحراء");
+    expect(category!.image).toBeNull();
   });
 });
 

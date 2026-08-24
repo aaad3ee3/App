@@ -3,6 +3,7 @@ import { PRODUCT_KIND, SUPPLIER } from "../../config/constants";
 import type { GiftCardSupplierAdapter } from "../../adapters/giftcards/giftcard-supplier.interface";
 import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interface";
 import { categorizePlusService } from "./plus-categorization";
+import { matchBrandIcon } from "./brand-icons";
 import * as catalogRepo from "./catalog.repository";
 
 /**
@@ -46,7 +47,9 @@ export async function syncLibyaPlay(adapter: GiftCardSupplierAdapter): Promise<S
       supplier: SUPPLIER.LIBYA_PLAY,
       supplierCategoryRef: category.id,
       name: category.name,
-      image: category.image || null,
+      // Libya Play only ships a real image for a handful of categories — fall back to a
+      // recognized brand's icon before giving up and leaving it blank.
+      image: category.image || matchBrandIcon(category.name) || null,
     });
     categoryCount += 1;
 
