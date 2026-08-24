@@ -7,6 +7,7 @@ import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
 import '../../utils/money.dart';
+import '../../widgets/sign_in_gate.dart';
 
 class SmmPurchaseScreen extends StatefulWidget {
   const SmmPurchaseScreen({super.key, required this.product});
@@ -52,6 +53,10 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    // Guests get the reason before the wall, not a 401 after it.
+    if (!await ensureSignedInToBuy(context)) return;
+    if (!mounted) return;
+
     setState(() {
       _submitting = true;
       _error = null;

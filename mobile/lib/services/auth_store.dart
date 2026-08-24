@@ -26,11 +26,26 @@ class AuthStore extends ChangeNotifier {
   AppUser? _user;
   AuthStatus status = AuthStatus.unknown;
   String? lastError;
+  bool _isGuest = false;
 
   ApiClient get api => _api;
   PushService get push => _push;
   AppUser? get user => _user;
   bool get isAuthenticated => status == AuthStatus.authenticated;
+
+  /// True when the customer chose "browse without an account". Deliberately kept in
+  /// memory only — a guest is a visitor for this run of the app, not a persisted identity,
+  /// and reopening the app should put them back at the sign-in screen rather than silently
+  /// dropping them into a store they cannot buy from.
+  ///
+  /// Guest mode never affects what the API allows. Browsing is public server-side and
+  /// buying is not, so this flag only decides what the UI offers — it grants nothing.
+  bool get isGuest => _isGuest && !isAuthenticated;
+
+  void continueAsGuest() {
+    _isGuest = true;
+    notifyListeners();
+  }
 
   Future<void> bootstrap() async {
     _token = await _storage.read(key: _tokenKey);
@@ -195,6 +210,8 @@ class AuthStore extends ChangeNotifier {
   Future<void> _clearSession() async {
     _token = null;
     _user = null;
+    // Signing out returns you to the sign-in screen, not to a half-usable guest store.
+    _isGuest = false;
     await _storage.delete(key: _tokenKey);
   }
 }

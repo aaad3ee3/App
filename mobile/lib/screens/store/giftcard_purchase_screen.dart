@@ -6,6 +6,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
 import '../../services/orders_service.dart';
+import '../../widgets/sign_in_gate.dart';
 
 class GiftcardPurchaseScreen extends StatefulWidget {
   const GiftcardPurchaseScreen({super.key, required this.product});
@@ -29,6 +30,10 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
   }
 
   Future<void> _confirmPurchase() async {
+    // Guests get the reason before the wall, not a 401 after it.
+    if (!await ensureSignedInToBuy(context)) return;
+    if (!mounted) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

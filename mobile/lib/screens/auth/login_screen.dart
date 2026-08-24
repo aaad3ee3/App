@@ -52,6 +52,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _continueAsGuest() {
+    context.read<AuthStore>().continueAsGuest();
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -141,6 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 MaterialPageRoute(builder: (_) => const RegisterScreen()),
                               ),
                       child: const Text('ما عندك حساب؟ سجّل الآن'),
+                    ),
+                    const SizedBox(height: 4),
+                    const Divider(),
+                    const SizedBox(height: 4),
+                    // Lets someone see the prices before deciding to sign up. Browsing is
+                    // public server-side, so this grants nothing the API would not already
+                    // serve — it only stops the sign-in wall from being the first thing a
+                    // new visitor meets.
+                    OutlinedButton.icon(
+                      onPressed: _submitting ? null : _continueAsGuest,
+                      icon: const Icon(Icons.storefront_outlined, size: 20),
+                      label: const Text('تصفّح بدون حساب'),
                     ),
                   ],
                 ),

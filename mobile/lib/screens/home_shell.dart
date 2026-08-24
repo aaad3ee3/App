@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sayeh_logo.dart';
+import '../widgets/sign_in_gate.dart';
 import 'profile_screen.dart';
 import 'store/orders_history_screen.dart';
 import 'store/store_screen.dart';
@@ -28,11 +29,35 @@ class _HomeShellState extends State<HomeShell> {
   // "where is my code" is the single most repeated question, and it was buried two taps
   // deep inside the profile.
   static const _titles = ['المتجر', 'طلباتي', 'المحفظة', 'حسابي'];
+
+  // The store is the one tab a visitor gets in full — everything else is about *their*
+  // money and *their* orders, which needs an account to even mean anything.
   static const _pages = [
     StoreScreen(),
-    OrdersHistoryScreen(embedded: true),
-    WalletScreen(),
-    ProfileScreen(),
+    RequiresAccount(
+      gate: SignInGate(
+        icon: Icons.receipt_long_rounded,
+        title: 'طلباتك تبان هنا',
+        message: 'أنشئ حساب عشان تشتري وتتابع طلباتك وتلقى أكوادك محفوظة في أي وقت.',
+      ),
+      child: OrdersHistoryScreen(embedded: true),
+    ),
+    RequiresAccount(
+      gate: SignInGate(
+        icon: Icons.account_balance_wallet_rounded,
+        title: 'محفظتك',
+        message: 'أنشئ حساب عشان تشحن رصيدك بليبيانا وتشتري بضغطة وحدة.',
+      ),
+      child: WalletScreen(),
+    ),
+    RequiresAccount(
+      gate: SignInGate(
+        icon: Icons.person_rounded,
+        title: 'حسابك',
+        message: 'سجّل دخولك عشان توصل لبياناتك وطلباتك وإعداداتك.',
+      ),
+      child: ProfileScreen(),
+    ),
   ];
 
   @override
