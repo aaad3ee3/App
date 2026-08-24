@@ -28,7 +28,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    // Only declared when there's an actual body — the backend's JSON body parser rejects
+    // a request that claims application/json but sends nothing (e.g. the bodyless
+    // catalog-sync POST), so a bodyless request must not send this header at all.
+    ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string> | undefined),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
