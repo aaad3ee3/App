@@ -398,22 +398,27 @@ class _CategoryCard extends StatelessWidget {
                   ),
                 ),
                 child: category.image != null
-                    ? Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Image.network(
-                          category.image!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => _fallbackIcon(context),
-                          loadingBuilder: (context, child, progress) => progress == null
-                              ? child
-                              : const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
-                                  ),
+                    ? Image.network(
+                        category.image!,
+                        // Full-bleed rather than contained-with-padding: a small square
+                        // brand icon (Simple Icons) or Libya Play's own rectangular game
+                        // art both end up looking like an afterthought floating in a
+                        // corner under `contain` + padding, which is what made the grid
+                        // look unfinished. `cover` fills the tile edge-to-edge like every
+                        // competitor's store grid does, cropping rather than shrinking.
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (_, _, _) => _fallbackIcon(context),
+                        loadingBuilder: (context, child, progress) => progress == null
+                            ? child
+                            : const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
                                 ),
-                        ),
+                              ),
                       )
                     : _fallbackIcon(context),
               ),
