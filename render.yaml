@@ -16,8 +16,12 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm ci && npm run build
-    preDeployCommand: npm run migrate
-    startCommand: npm start
+    # Free-tier services don't support preDeployCommand (paid-plan-only feature), so
+    # migrations run as the first step of startCommand instead. Safe to repeat on every
+    # wake from sleep: knex migrate:latest tracks applied migrations and no-ops if none
+    # are pending — it only costs a couple of seconds added to the free tier's existing
+    # ~1-minute cold-start wake, not a real slowdown.
+    startCommand: npm run migrate && npm start
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL

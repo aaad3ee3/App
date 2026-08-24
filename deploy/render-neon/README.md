@@ -50,7 +50,7 @@
 | `SMS_GATEWAY_URL` | اتركها فاضية الآن — التفصيل تحت |
 | `LIBYA_PLAY_API_KEY` / `LIBYA_PLAY_EMAIL` / `PLUS_API_KEY` / `PLUS_USD_TO_LYD_RATE` | اتركها فاضية لو ما عندك مفاتيح الموردين بعد — التطبيق يشتغل بدونها، بس المزامنة مع الموردين الحقيقيين ما تشتغل لحد ما تحطها |
 
-6. اضغط **Deploy Blueprint**. Render يبني الخدمتين، يشغّل الـ migrations تلقائياً (`preDeployCommand`)، وينشر.
+6. اضغط **Deploy Blueprint**. Render يبني الخدمتين، يشغّل الـ migrations تلقائياً كأول خطوة عند بدء تشغيل الـ API (الخطة المجانية ما تدعم `preDeployCommand`)، وينشر.
 
 بعد دقيقة ولا دقيقتين، رابطك يكون جاهز:
 ```
