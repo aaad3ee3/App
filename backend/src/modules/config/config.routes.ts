@@ -24,6 +24,14 @@ export default async function configRoutes(app: FastifyInstance) {
       // over WhatsApp — "where is my code", "why did my top-up not land".
       faq_url: env.PUBLIC_BASE_URL ? `${env.PUBLIC_BASE_URL}/legal/faq.html` : null,
     },
+    auth: {
+      // Android returns no ID token at all unless the sign-in call is given this, so the
+      // app reads it from here rather than baking it in — and serving the same value the
+      // verifier accepts makes the two impossible to configure out of sync. Public by
+      // design: an OAuth client ID identifies the app, it does not authorise anything.
+      // Null switches the Google button off in the app instead of showing one that fails.
+      google_server_client_id: env.GOOGLE_SERVER_CLIENT_ID ?? null,
+    },
     // Lets the app show real expectations before purchase instead of leaving the customer
     // guessing whether "a minute" or "a day" is normal.
     delivery: {

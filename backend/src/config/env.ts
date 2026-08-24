@@ -117,13 +117,24 @@ const envSchema = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
 
   /**
-   * Accepted audiences for Google ID tokens, comma-separated. There is normally more than
-   * one: Android ships the *Web* client ID as its audience while iOS uses its own, so a
-   * single value would silently reject one platform.
+   * The **Web** OAuth client ID. Two jobs, deliberately one variable:
+   *
+   * - it is handed to the app via /config as `serverClientId`, which is what makes Android
+   *   return an ID token at all — without it `idToken` is null and sign-in cannot work;
+   * - it is automatically an accepted audience below.
+   *
+   * Tying them together means the app can never request an audience the server rejects,
+   * which is the failure mode you get from configuring the two halves separately.
    *
    * Unset means Google sign-in is off — the endpoint answers 503 rather than accepting a
    * token it cannot check the audience of. An ID token with an unverified audience is not
    * proof of anything: anyone can mint one for their own app and present it here.
+   */
+  GOOGLE_SERVER_CLIENT_ID: z.string().optional(),
+
+  /**
+   * Extra accepted audiences, comma-separated. Only needed when adding a platform that
+   * uses its own client ID rather than the Web one — iOS, notably.
    */
   GOOGLE_OAUTH_CLIENT_IDS: z.string().optional(),
 

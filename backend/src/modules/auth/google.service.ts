@@ -14,8 +14,10 @@ export interface GoogleIdentity {
 let client: OAuth2Client | null = null;
 
 function acceptedAudiences(): string[] {
-  return (env.GOOGLE_OAUTH_CLIENT_IDS ?? "")
-    .split(",")
+  const extra = (env.GOOGLE_OAUTH_CLIENT_IDS ?? "").split(",");
+  // The server client ID is always accepted: it is the audience the app is told to request,
+  // so rejecting it would mean shipping a configuration that cannot succeed.
+  return [env.GOOGLE_SERVER_CLIENT_ID ?? "", ...extra]
     .map((id) => id.trim())
     .filter((id) => id.length > 0);
 }

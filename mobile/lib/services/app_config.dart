@@ -14,6 +14,7 @@ class AppConfig {
     this.privacyUrl,
     this.termsUrl,
     this.faqUrl,
+    this.googleServerClientId,
     this.giftcardMinutes = 5,
     this.smmHours = 24,
     this.minSupportedVersion = 0,
@@ -29,6 +30,12 @@ class AppConfig {
   /// rather than showing a dead link — unlike the policy URLs, there is no public fallback
   /// to fall back to, and a broken help link is worse than no help link.
   final String? faqUrl;
+
+  /// The Web OAuth client ID. Android returns no ID token without it, so null means the
+  /// Google button is hidden entirely rather than shown as a button that cannot work.
+  final String? googleServerClientId;
+  bool get googleSignInEnabled => (googleServerClientId ?? '').isNotEmpty;
+
   final int giftcardMinutes;
   final int smmHours;
 
@@ -53,12 +60,14 @@ class AppConfig {
     final legal = json['legal'] as Map<String, dynamic>?;
     final delivery = json['delivery'] as Map<String, dynamic>?;
     final app = json['app'] as Map<String, dynamic>?;
+    final auth = json['auth'] as Map<String, dynamic>?;
 
     return AppConfig(
       supportWhatsapp: support?['whatsapp'] as String?,
       privacyUrl: legal?['privacy_url'] as String? ?? fallback.privacyUrl,
       termsUrl: legal?['terms_url'] as String? ?? fallback.termsUrl,
       faqUrl: legal?['faq_url'] as String?,
+      googleServerClientId: auth?['google_server_client_id'] as String?,
       giftcardMinutes: (delivery?['giftcard_minutes'] as num?)?.toInt() ?? 5,
       smmHours: (delivery?['smm_hours'] as num?)?.toInt() ?? 24,
       minSupportedVersion: (app?['min_supported_version'] as num?)?.toInt() ?? 0,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/app_config.dart';
 import '../../services/auth_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/sayeh_logo.dart';
@@ -88,7 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final auth = context.read<AuthStore>();
-    final ok = await auth.loginWithGoogle();
+    final ok = await auth.loginWithGoogle(
+      serverClientId: context.read<AppConfigStore>().config.googleServerClientId,
+    );
 
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -188,26 +191,31 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Text('دخول'),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'أو',
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    // Hidden entirely until the operator has configured an OAuth client —
+                    // a Google button that cannot possibly return a token is worse than
+                    // no button at all.
+                    if (context.watch<AppConfigStore>().config.googleSignInEnabled) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'أو',
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
                           ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: _submitting ? null : _signInWithGoogle,
-                      icon: const _GoogleMark(),
-                      label: const Text('تسجيل الدخول بواسطة Google'),
-                    ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        onPressed: _submitting ? null : _signInWithGoogle,
+                        icon: const _GoogleMark(),
+                        label: const Text('تسجيل الدخول بواسطة Google'),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: _submitting

@@ -101,10 +101,18 @@ class AuthStore extends ChangeNotifier {
   ///
   /// Returns false if the customer backs out of the picker, with no error shown: dismissing
   /// a sheet you opened by mistake is not a failure worth reporting.
-  Future<bool> loginWithGoogle() async {
+  Future<bool> loginWithGoogle({required String? serverClientId}) async {
     lastError = null;
+    if (serverClientId == null || serverClientId.isEmpty) {
+      lastError = 'الدخول عبر جوجل غير مفعّل حالياً.';
+      notifyListeners();
+      return false;
+    }
     try {
-      final signIn = GoogleSignIn(scopes: const ['email']);
+      // serverClientId is what makes Android hand back an idToken — without it the token
+      // is silently null and there is nothing to send the backend. It comes from /config
+      // so it is always the same value the server will accept as the audience.
+      final signIn = GoogleSignIn(scopes: const ['email'], serverClientId: serverClientId);
       // Clears any account cached from a previous run, so the picker actually appears and
       // a customer can switch accounts instead of being silently signed back into the old one.
       await signIn.signOut();
