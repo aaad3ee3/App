@@ -23,7 +23,7 @@ which is indistinguishable from being robbed.
 ## 1. Create the Firebase project
 
 1. Go to <https://console.firebase.google.com> and create a project (e.g. `sayeh`).
-2. Add an **Android** app with package name `com.libyastore.mobile` (check
+2. Add an **Android** app with package name `com.sayeh.app` (check
    `android/app/build.gradle.kts` if you change it). Download `google-services.json` into
    `android/app/`.
 3. Add an **iOS** app if you ship on iOS, and put `GoogleService-Info.plist` into
