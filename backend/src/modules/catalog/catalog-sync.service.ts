@@ -20,6 +20,7 @@ export function applyMarkup(cost: number): number {
 export interface SyncResult {
   categories: number;
   products: number;
+  removed: number;
 }
 
 /**
@@ -28,10 +29,15 @@ export interface SyncResult {
  * back to its sub-category's image, falling back to its top-level category's image —
  * Libya Play provides real per-category images (e.g. an actual PUBG image on the "شدات
  * ببجي" category), so this is normally just the product's own image.
+ *
+ * Anything Libya Play stops listing gets marked unavailable at the end (see
+ * markStaleProductsUnavailable) — a discontinued product otherwise stays buyable forever,
+ * since nothing else here ever revisits a product this run didn't touch.
  */
 export async function syncLibyaPlay(adapter: GiftCardSupplierAdapter): Promise<SyncResult> {
   let categoryCount = 0;
   let productCount = 0;
+  const seenRefs: string[] = [];
 
   const categories = await adapter.listCategories();
   for (const category of categories) {
@@ -66,11 +72,13 @@ export async function syncLibyaPlay(adapter: GiftCardSupplierAdapter): Promise<S
           available: product.available,
         });
         productCount += 1;
+        seenRefs.push(product.id);
       }
     }
   }
 
-  return { categories: categoryCount, products: productCount };
+  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.LIBYA_PLAY, seenRefs);
+  return { categories: categoryCount, products: productCount, removed };
 }
 
 /**
@@ -78,11 +86,19 @@ export async function syncLibyaPlay(adapter: GiftCardSupplierAdapter): Promise<S
  * categories via keyword heuristics (see plus-categorization.ts). Prices are quoted in
  * USD by Plus and normalized to LYD here via PLUS_USD_TO_LYD_RATE before markup, so the
  * orders engine only ever deals in LYD.
+ *
+ * Plus's service list changes on their end without notice — services get discontinued,
+ * new ones appear. New ones need no special handling: every run re-derives categories
+ * from whatever service names come back, so a brand-new service is auto-categorized and
+ * upserted exactly like an existing one. A service Plus stopped listing is the opposite
+ * problem — it simply won't appear in `services` below, so it's marked unavailable at the
+ * end (see markStaleProductsUnavailable) rather than staying orderable forever.
  */
 export async function syncPlus(adapter: SmmSupplierAdapter): Promise<SyncResult> {
   const services = await adapter.listServices();
   const categoryIdByKey = new Map<string, string>();
   let productCount = 0;
+  const seenRefs: string[] = [];
 
   for (const service of services) {
     const match = categorizePlusService(service.name);
@@ -117,7 +133,9 @@ export async function syncPlus(adapter: SmmSupplierAdapter): Promise<SyncResult>
       available: true,
     });
     productCount += 1;
+    seenRefs.push(service.supplierServiceId);
   }
 
-  return { categories: categoryIdByKey.size, products: productCount };
+  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.PLUS, seenRefs);
+  return { categories: categoryIdByKey.size, products: productCount, removed };
 }

@@ -1,7 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../src/db/knex";
 import * as catalogRepo from "../../src/modules/catalog/catalog.repository";
+import { syncPlus } from "../../src/modules/catalog/catalog-sync.service";
+import type { SmmService, SmmSupplierAdapter } from "../../src/adapters/smm/smm-supplier.interface";
 import { createTestCategory, resetDb } from "../helpers";
+
+function mockPlusAdapter(services: SmmService[]): SmmSupplierAdapter {
+  return {
+    listServices: () => Promise.resolve(services),
+    addOrder: () => Promise.reject(new Error("not used in these tests")),
+    getOrderStatus: () => Promise.reject(new Error("not used in these tests")),
+  };
+}
 
 /**
  * Regression coverage for a real production incident: Libya Play's live API returned
@@ -103,5 +113,70 @@ describe("catalog sync — re-syncing never wipes an admin-set category image", 
     const categories = await catalogRepo.listAllCategoriesAdmin();
     const category = categories.find((c) => c.id === categoryId);
     expect(category!.image).toBe("https://cdn.libyaplay.com/psn.png");
+  });
+});
+
+describe("catalog sync — discontinued Plus services drop out of the buyable catalog", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  const service = (id: string, name: string): SmmService => ({
+    supplierServiceId: id,
+    name,
+    costPer1000: 1,
+    currency: "USD",
+    minQuantity: 100,
+    maxQuantity: 10000,
+  });
+
+  it("marks a service unavailable once Plus stops listing it, and never touches other suppliers", async () => {
+    const otherSupplierCategory = await createTestCategory({ kind: "giftcard", supplier: "libya_play" });
+    const untouchedProductId = await catalogRepo.upsertProduct({
+      categoryId: otherSupplierCategory.id,
+      kind: "giftcard",
+      supplier: "libya_play",
+      supplierProductRef: "untouched-giftcard",
+      supplierSubCategoryRef: null,
+      name: "Untouched giftcard",
+      description: null,
+      image: null,
+      costPrice: 10,
+      sellPrice: 12,
+      currency: "LYD",
+      pricePer1000: false,
+      minQuantity: null,
+      maxQuantity: null,
+      available: true,
+    });
+
+    // First sync: two Plus services.
+    await syncPlus(mockPlusAdapter([service("1001", "متابعين انستقرام"), service("1002", "لايكات تيك توك")]));
+
+    // Second sync: Plus stopped listing service 1002.
+    const result = await syncPlus(mockPlusAdapter([service("1001", "متابعين انستقرام")]));
+    expect(result.removed).toBe(1);
+
+    const products = await catalogRepo.listAllProductsAdmin();
+    const stillListed = products.find((p) => p.supplier_product_ref === "1001");
+    const discontinued = products.find((p) => p.supplier_product_ref === "1002");
+    expect(stillListed!.available).toBe(true);
+    expect(discontinued!.available).toBe(false);
+
+    // The unrelated Libya Play product from a different supplier is untouched.
+    const untouched = await catalogRepo.getProductById(untouchedProductId);
+    expect(untouched!.available).toBe(true);
+  });
+
+  it("marks everything unavailable when a sync run legitimately returns zero services", async () => {
+    // An empty `services` array is trusted as a real outcome, not treated as a failure —
+    // syncPlus only reaches markStaleProductsUnavailable at all if listServices()
+    // resolved without throwing, so a genuine supplier error never lands here.
+    await syncPlus(mockPlusAdapter([service("2001", "test service")]));
+    const result = await syncPlus(mockPlusAdapter([]));
+    expect(result.removed).toBe(1);
+
+    const products = await catalogRepo.listAllProductsAdmin();
+    expect(products.find((p) => p.supplier_product_ref === "2001")!.available).toBe(false);
   });
 });

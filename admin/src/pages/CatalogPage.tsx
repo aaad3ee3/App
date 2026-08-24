@@ -30,8 +30,8 @@ interface ProductRow {
 }
 
 interface SyncResult {
-  libya_play: { categories: number; products: number };
-  plus: { categories: number; products: number };
+  libya_play: { categories: number; products: number; removed: number };
+  plus: { categories: number; products: number; removed: number };
 }
 
 export function CatalogPage() {
@@ -123,7 +123,9 @@ export function CatalogPage() {
       {syncResult && (
         <div className="card" style={{ background: "#eef6f4" }}>
           تمت المزامنة — Libya Play: {syncResult.libya_play.categories} تصنيف / {syncResult.libya_play.products} منتج
+          {syncResult.libya_play.removed > 0 && ` (أُخفي ${syncResult.libya_play.removed} توقف عنه المورد)`}
           &nbsp;|&nbsp; Plus: {syncResult.plus.categories} تصنيف / {syncResult.plus.products} منتج
+          {syncResult.plus.removed > 0 && ` (أُخفي ${syncResult.plus.removed} توقف عنه المورد)`}
         </div>
       )}
 

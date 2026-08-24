@@ -202,6 +202,22 @@ export async function listAllProductsAdmin(categoryId?: string): Promise<Product
   return query.orderBy("name");
 }
 
+/**
+ * Marks unavailable any currently-available product from this supplier whose ref wasn't
+ * seen in the sync run that just finished — i.e. the supplier stopped listing it. A
+ * product is never deleted outright: past orders reference it by id, and `ON DELETE
+ * RESTRICT` on orders/wallet_transactions exists precisely so the ledger can't lose that
+ * link (the auth module's anonymize-don't-delete pattern applies the same reasoning to
+ * users). Unavailable just means it drops out of browsing and can no longer be bought —
+ * see createOrder's `available` check.
+ */
+export function markStaleProductsUnavailable(supplier: Supplier, seenSupplierProductRefs: string[]): Promise<number> {
+  return db("products")
+    .where({ supplier, available: true })
+    .whereNotIn("supplier_product_ref", seenSupplierProductRefs)
+    .update({ available: false, updated_at: new Date() });
+}
+
 export function setCategoryEnabled(id: string, enabled: boolean): Promise<number> {
   return db("categories").where({ id }).update({ enabled, updated_at: new Date() });
 }
