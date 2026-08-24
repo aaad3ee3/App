@@ -45,6 +45,10 @@ dependencies:
   firebase_messaging: ^16.5.0
   url_launcher: ^6.3.2
   package_info_plus: ^8.1.2
+  # Pinned to 6.x deliberately: 7.x reworked the API into an initialize/authenticate split
+  # and drops the `idToken` off the plain authentication object, which is exactly the value
+  # the backend verifies. Moving up is a code change, not a version bump.
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:

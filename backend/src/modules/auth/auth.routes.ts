@@ -6,6 +6,7 @@ import { findUserById } from "./auth.repository";
 import {
   completePasswordResetSchema,
   deleteAccountSchema,
+  googleSignInSchema,
   linkPhoneRequestSchema,
   linkPhoneVerifySchema,
   loginSchema,
@@ -42,6 +43,18 @@ export default async function authRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const input = loginSchema.parse(request.body);
       const result = await authService.login(input, sessionMeta(request));
+      reply.send(result);
+    }
+  );
+
+  // Shares the login limit rather than the registration one: this endpoint both signs in
+  // and signs up, and the expensive half is Google's signature check, not an SMS.
+  app.post(
+    "/google",
+    { config: { rateLimit: { max: env.RATE_LIMIT_LOGIN_MAX, timeWindow: env.RATE_LIMIT_LOGIN_WINDOW_MS } } },
+    async (request, reply) => {
+      const { id_token } = googleSignInSchema.parse(request.body);
+      const result = await authService.loginWithGoogle(id_token, sessionMeta(request));
       reply.send(result);
     }
   );

@@ -57,6 +57,15 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 /**
+ * Capped well above a real Google ID token (~1 KB) and well below the body limit, so an
+ * oversized payload is rejected on shape before it reaches signature verification.
+ */
+export const googleSignInSchema = z.object({
+  id_token: z.string().trim().min(1, "رمز جوجل مفقود").max(4096),
+});
+export type GoogleSignInInput = z.infer<typeof googleSignInSchema>;
+
+/**
  * Linking a phone is how a signed-in customer proves a Libyana number is really theirs,
  * so top-up transfers from it can be matched to their account. Two steps, same shape as
  * the old registration flow: request a code, then confirm it.

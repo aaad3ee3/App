@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user.dart';
 import 'api_client.dart';
 import 'push_service.dart';
@@ -92,6 +93,42 @@ class AuthStore extends ChangeNotifier {
 
   Future<bool> login({required String email, required String password}) {
     return _authenticate(() => _api.post('/auth/login', body: {'email': email, 'password': password}));
+  }
+
+  /// Sign in with Google. Opens the account picker, then hands the resulting ID token to
+  /// the backend, which verifies it against Google's certificates and issues our own
+  /// session — the Google token itself is never used as a credential for our API.
+  ///
+  /// Returns false if the customer backs out of the picker, with no error shown: dismissing
+  /// a sheet you opened by mistake is not a failure worth reporting.
+  Future<bool> loginWithGoogle() async {
+    lastError = null;
+    try {
+      final signIn = GoogleSignIn(scopes: const ['email']);
+      // Clears any account cached from a previous run, so the picker actually appears and
+      // a customer can switch accounts instead of being silently signed back into the old one.
+      await signIn.signOut();
+
+      final account = await signIn.signIn();
+      if (account == null) return false;
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        // Almost always a configuration problem rather than anything the customer did —
+        // the OAuth client ID is missing or the app's signing fingerprint is not registered.
+        lastError = 'تعذّر إكمال الدخول عبر جوجل. حاول بطريقة أخرى أو تواصل مع الدعم.';
+        notifyListeners();
+        return false;
+      }
+
+      return _authenticate(() => _api.post('/auth/google', body: {'id_token': idToken}));
+    } catch (e) {
+      debugPrint('[auth] google sign-in failed: $e');
+      lastError = 'تعذّر الدخول عبر جوجل. تأكد من اتصالك وحاول مرة أخرى.';
+      notifyListeners();
+      return false;
+    }
   }
 
   /// Step 1 of linking a Libyana number to the signed-in account: asks the server to

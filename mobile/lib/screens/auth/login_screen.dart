@@ -14,6 +14,35 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// A plain "G" in Google's blue, drawn rather than bundled.
+///
+/// Google's brand guidelines want their official multi-colour asset on a sign-in button,
+/// so this is a stand-in until that image file is added to `assets/` — it reads correctly
+/// and avoids shipping a bad hand-drawn imitation of their logo in the meantime.
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: Center(
+        child: Text(
+          'G',
+          textDirection: TextDirection.ltr,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF4285F4),
+            height: 1.1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -49,6 +78,27 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
     } else {
       setState(() => _error = auth.lastError ?? 'تعذّر تسجيل الدخول');
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final auth = context.read<AuthStore>();
+    final ok = await auth.loginWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (ok) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeShell()));
+    } else if (auth.lastError != null) {
+      // Null when the customer simply dismissed the account picker — nothing went wrong,
+      // so nothing is reported.
+      setState(() => _error = auth.lastError);
     }
   }
 
@@ -137,6 +187,26 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Text('دخول'),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'أو',
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: _submitting ? null : _signInWithGoogle,
+                      icon: const _GoogleMark(),
+                      label: const Text('تسجيل الدخول بواسطة Google'),
                     ),
                     const SizedBox(height: 8),
                     TextButton(

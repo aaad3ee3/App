@@ -116,6 +116,17 @@ const envSchema = z.object({
   // and terms URLs the app and the store listings link to.
   PUBLIC_BASE_URL: z.string().url().optional(),
 
+  /**
+   * Accepted audiences for Google ID tokens, comma-separated. There is normally more than
+   * one: Android ships the *Web* client ID as its audience while iOS uses its own, so a
+   * single value would silently reject one platform.
+   *
+   * Unset means Google sign-in is off — the endpoint answers 503 rather than accepting a
+   * token it cannot check the audience of. An ID token with an unverified audience is not
+   * proof of anything: anyone can mint one for their own app and present it here.
+   */
+  GOOGLE_OAUTH_CLIENT_IDS: z.string().optional(),
+
   // Force-update gate for the app itself, needed while it is sideloaded (no Play Store
   // to push updates through). 0 means "not enforced" — the default, so a fresh deploy
   // never locks everyone out by accident. Set it to the pubspec build number (the

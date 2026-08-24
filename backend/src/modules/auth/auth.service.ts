@@ -4,6 +4,7 @@ import { DEFAULT_CURRENCY } from "../../config/constants";
 import { generateOpaqueToken, sha256Hex } from "../../lib/crypto";
 import { HttpError } from "../../plugins/error-handler.plugin";
 import * as repo from "./auth.repository";
+import { verifyGoogleIdToken } from "./google.service";
 import type { AdminLoginInput, CompletePasswordResetInput, LoginInput, RegisterInput } from "./auth.schemas";
 import type { UserRow } from "../../db/types";
 import * as otp from "./otp.service";
@@ -44,6 +45,44 @@ export async function register(input: RegisterInput, meta: SessionMeta) {
   const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
   const user = await repo.createUserWithWallet(
     { email: input.email, passwordHash, fullName: input.full_name ?? null },
+    DEFAULT_CURRENCY
+  );
+
+  const token = await issueSession(user.id, meta);
+  return { token, user: publicUser(user) };
+}
+
+/**
+ * Sign in (or sign up) with a Google ID token.
+ *
+ * The token is verified first — see google.service.ts for what that guarantees. By the
+ * time we get here Google has attested that the holder controls this email address.
+ *
+ * An existing password account with the same email is *signed into*, not rejected as a
+ * duplicate. Proving control of the address is at least as strong as knowing the password,
+ * so refusing would only strand a customer who signed up one way and came back the other.
+ *
+ * A new account gets an unusable password: a hash of random bytes nobody has. That keeps
+ * `password_hash` NOT NULL without a migration, and makes password login impossible for
+ * this account rather than merely unlikely — there is no plaintext that verifies against
+ * it. Such a customer recovers via password reset once they link a phone, exactly like
+ * anyone else.
+ */
+export async function loginWithGoogle(idToken: string, meta: SessionMeta) {
+  const identity = await verifyGoogleIdToken(idToken);
+
+  const existing = await repo.findUserByEmail(identity.email);
+  if (existing) {
+    if (existing.status !== "active") {
+      throw new HttpError(403, "account_disabled", "تم تعطيل هذا الحساب");
+    }
+    const token = await issueSession(existing.id, meta);
+    return { token, user: publicUser(existing) };
+  }
+
+  const unusablePasswordHash = await argon2.hash(generateOpaqueToken(), { type: argon2.argon2id });
+  const user = await repo.createUserWithWallet(
+    { email: identity.email, passwordHash: unusablePasswordHash, fullName: identity.fullName },
     DEFAULT_CURRENCY
   );
 
