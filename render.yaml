@@ -44,6 +44,11 @@ services:
       # بدل ما تُرسل فعلياً — مقبول لتجربة مع أصدقاء تعرفهم، مرفوض قبل إطلاق حقيقي.
       - key: SMS_GATEWAY_URL
         sync: false
+      # Render يحط NODE_ENV=production تلقائياً، وفحص الأمان بالكود يرفض يشتغل بدون
+      # SMS_GATEWAY_URL في بيئة إنتاج ما لم يوافق المشغّل صراحة على هذا. لازم تحذفه أو
+      # تخليه false لما تحط بوابة SMS حقيقية قبل إطلاق فعلي لناس ما تعرفهم.
+      - key: ALLOW_SMS_CONSOLE_FALLBACK
+        value: "true"
       - key: LIBYA_PLAY_API_KEY
         sync: false
       - key: LIBYA_PLAY_EMAIL

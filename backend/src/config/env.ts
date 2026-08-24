@@ -91,6 +91,17 @@ const envSchema = z.object({
   SMS_GATEWAY_TO_FIELD: z.string().default("to"),
   SMS_GATEWAY_TEXT_FIELD: z.string().default("message"),
 
+  // Explicit, opt-in acknowledgement that this production deployment has no real SMS
+  // gateway yet and OTP codes will only ever reach the server log — never flip this on
+  // for a launch with real, untrusted users. Exists for small-scale trials (a handful of
+  // people you personally relay codes to) run on a host that sets NODE_ENV=production
+  // outside the app's control (e.g. Render), where the safety check below would
+  // otherwise refuse to boot even though the operator already knows and accepts this.
+  ALLOW_SMS_CONSOLE_FALLBACK: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
   // Phone verification codes.
   OTP_TTL_MINUTES: z.coerce.number().int().positive().default(10),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
@@ -185,10 +196,11 @@ function assertProductionSafety(cfg: Env): void {
   // Without a gateway the SMS sender falls back to printing codes to the log. In
   // production that means every verification and password-reset code is readable by
   // anyone with log access, and no customer ever actually receives one.
-  if (!cfg.SMS_GATEWAY_URL) {
+  if (!cfg.SMS_GATEWAY_URL && !cfg.ALLOW_SMS_CONSOLE_FALLBACK) {
     problems.push(
       "SMS_GATEWAY_URL must be set — without it, phone verification and password-reset " +
-        "codes are written to the server log instead of being delivered"
+        "codes are written to the server log instead of being delivered. If this is a " +
+        "deliberate small-scale trial, set ALLOW_SMS_CONSOLE_FALLBACK=true instead."
     );
   }
 
