@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/app_config.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sayeh_logo.dart';
 import 'auth/login_screen.dart';
 import 'home_shell.dart';
+import 'update_required_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -33,17 +35,28 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _bootstrap() async {
     final auth = context.read<AuthStore>();
+    final appConfig = context.read<AppConfigStore>();
     // Restoring the session is usually instant, which makes the logo flash by. Hold the
-    // splash for a beat so the brand registers instead of stuttering.
+    // splash for a beat so the brand registers instead of stuttering. appConfig.load()
+    // is awaited here too (not just fired at app start) so the update check is settled
+    // before routing — it no-ops immediately if the app-start call already finished.
     await Future.wait([
       auth.bootstrap(),
+      appConfig.load(),
       Future<void>.delayed(const Duration(milliseconds: 900)),
     ]);
     if (!mounted) return;
 
+    // Checked before authentication, and wins regardless of it — a customer on a
+    // retired build should not reach a signed-in screen just because they were already
+    // logged in.
+    final next = appConfig.updateRequired
+        ? const UpdateRequiredScreen()
+        : (auth.isAuthenticated ? const HomeShell() : const LoginScreen());
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, _, _) => auth.isAuthenticated ? const HomeShell() : const LoginScreen(),
+        pageBuilder: (_, _, _) => next,
         transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
         transitionDuration: const Duration(milliseconds: 350),
       ),

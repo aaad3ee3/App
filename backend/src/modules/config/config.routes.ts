@@ -26,5 +26,13 @@ export default async function configRoutes(app: FastifyInstance) {
       giftcard_minutes: 5,
       smm_hours: 24,
     },
+    // Force-update gate — see APP_MIN_SUPPORTED_VERSION in config/env.ts. Checked on
+    // every launch so an old sideloaded build can be retired without messaging anyone
+    // individually.
+    app: {
+      min_supported_version: env.APP_MIN_SUPPORTED_VERSION,
+      latest_version_name: env.APP_LATEST_VERSION_NAME ?? null,
+      update_url: env.APP_UPDATE_URL ?? null,
+    },
   }));
 }

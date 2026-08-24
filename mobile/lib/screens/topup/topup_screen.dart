@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 import '../../config/store_config.dart';
@@ -43,6 +44,12 @@ class _TopupScreenState extends State<TopupScreen> {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LinkPhoneScreen()));
     // AuthStore already updated its user on success and notified listeners — this
     // screen watches it in build(), so nothing further to do here either way.
+  }
+
+  Future<void> _copyStoreNumber() async {
+    await Clipboard.setData(const ClipboardData(text: StoreConfig.libyanaTopupPhoneNumber));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ الرقم')));
   }
 
   Future<void> _load() async {
@@ -156,24 +163,105 @@ class _TopupScreenState extends State<TopupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'أدخل المبلغ، وراح نعطيك تعليمات التحويل من رقمك المرتبط.',
-            style: TextStyle(fontSize: 14),
+          // Card 1: the customer's own verified number — this is the number the
+          // matcher will look for as the transfer's sender, so showing it up front
+          // makes clear whose transfer counts.
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline_rounded, color: AppColors.navy),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('رقم هاتفك المسجل', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                        const SizedBox(height: 2),
+                        Text(
+                          phone,
+                          textDirection: TextDirection.ltr,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.successBg,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified_rounded, size: 14, color: AppColors.success),
+                        SizedBox(width: 4),
+                        Text('موثق', style: TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'الرجاء التحويل من هذا الرقم فقط لتجنب رفض العملية.',
+              style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
           ),
           const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.phone_android_rounded),
-            title: Text(phone, textDirection: TextDirection.ltr),
-            subtitle: const Text('رقمك المرتبط'),
-            trailing: TextButton(onPressed: _openLinkPhone, child: const Text('تغيير')),
+
+          // Card 2: the store's own Libyana number, with one-tap copy — this is where
+          // the transfer actually goes.
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('قم بالتحويل إلى هذا الرقم', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            StoreConfig.libyanaTopupPhoneNumber,
+                            textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        onPressed: _copyStoreNumber,
+                        icon: const Icon(Icons.copy_rounded),
+                        tooltip: 'نسخ الرقم',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+
           TextFormField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(labelText: 'المبلغ (دينار ليبي)'),
+            decoration: const InputDecoration(labelText: 'المبلغ الذي قمت (أو راح تقوم) بتحويله (د.ل)'),
             validator: (v) {
               final n = double.tryParse((v ?? '').trim());
               if (n == null || n <= 0) return 'أدخل مبلغًا صحيحًا';
@@ -185,15 +273,22 @@ class _TopupScreenState extends State<TopupScreen> {
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
           const SizedBox(height: 24),
-          FilledButton(
+          FilledButton.icon(
             onPressed: _submitting ? null : _submit,
-            child: _submitting
+            icon: _submitting
                 ? const SizedBox(
-                    height: 20,
-                    width: 20,
+                    height: 18,
+                    width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('إنشاء طلب الشحن'),
+                : const Icon(Icons.check_rounded),
+            label: Text(_submitting ? 'جارٍ التنفيذ…' : 'تأكيد العملية'),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'بعد التأكيد، إذا تطابق رقمك والمبلغ مع تحويل فعلي، راح يضاف الرصيد تلقائياً خلال دقائق.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

@@ -116,6 +116,20 @@ const envSchema = z.object({
   // and terms URLs the app and the store listings link to.
   PUBLIC_BASE_URL: z.string().url().optional(),
 
+  // Force-update gate for the app itself, needed while it is sideloaded (no Play Store
+  // to push updates through). 0 means "not enforced" — the default, so a fresh deploy
+  // never locks everyone out by accident. Set it to the pubspec build number (the
+  // digits after '+') of the oldest build still allowed to run; anything older is
+  // blocked with a full-screen prompt pointing at APP_UPDATE_URL. See
+  // mobile/lib/services/app_config.dart.
+  APP_MIN_SUPPORTED_VERSION: z.coerce.number().int().nonnegative().default(0),
+  // Shown to the customer on the update screen, e.g. "1.1.0" — purely cosmetic.
+  APP_LATEST_VERSION_NAME: z.string().optional(),
+  // Where the update prompt sends people — a link to the APK (Google Drive, etc.).
+  // Reuse the same link across releases (Drive: upload a new version of the same file
+  // instead of a new one) so this never has to change, only the version number above.
+  APP_UPDATE_URL: z.string().url().optional(),
+
   // Push notifications (Firebase Cloud Messaging). All three are optional: with any of
   // them missing the app runs normally and simply sends nothing, which keeps local
   // development and the test suite free of Firebase credentials.
