@@ -10,6 +10,8 @@ import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/product_tile.dart';
+import '../../widgets/shimmer_box.dart';
+import '../../widgets/tap_scale.dart';
 import 'category_products_screen.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
@@ -143,7 +145,7 @@ class _StoreScreenState extends State<StoreScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => result.category.isGiftcard
-            ? GiftcardPurchaseScreen(product: result.product)
+            ? GiftcardPurchaseScreen(product: result.product, heroTag: 'product-image-${result.product.id}')
             : SmmPurchaseScreen(product: result.product),
       ),
     );
@@ -197,7 +199,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _buildSearchResults() {
-    if (_searching && _results.isEmpty) return const Center(child: CircularProgressIndicator());
+    if (_searching && _results.isEmpty) return const ListRowSkeleton();
 
     if (_searchError != null) {
       return _CenteredMessage(
@@ -234,6 +236,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 product: _results[index].product,
                 // The category is what makes a result readable: "60 UC" alone says nothing.
                 subtitle: _results[index].category.name,
+                heroTag: 'product-image-${_results[index].product.id}',
                 onTap: () => _openResult(_results[index]),
               ),
             ),
@@ -244,7 +247,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _buildCategories() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const CategoryGridSkeleton();
     if (_error != null) {
       return _CenteredMessage(
         icon: Icons.wifi_off_rounded,
@@ -329,20 +332,68 @@ class _CenteredMessage extends StatelessWidget {
   }
 }
 
+class _PromoSlide {
+  const _PromoSlide({required this.title, required this.subtitle, required this.icon});
+  final String title;
+  final String subtitle;
+  final IconData icon;
+}
+
 /// A brand-colored strip above the category grid — the browse view otherwise opens
 /// straight into a search field and a grid, which reads as bare next to a home screen
 /// with any promotional content on it. Built from the existing palette and icons rather
-/// than illustration assets, so there's nothing here that can fail to load.
-class _PromoBanner extends StatelessWidget {
+/// than illustration assets, so there's nothing here that can fail to load. Auto-advances
+/// through a short rotation of messages rather than showing just one, the same way a
+/// storefront's own promotional space rarely sits on a single static message.
+class _PromoBanner extends StatefulWidget {
   const _PromoBanner({required this.kind});
 
   final String kind;
 
   @override
+  State<_PromoBanner> createState() => _PromoBannerState();
+}
+
+class _PromoBannerState extends State<_PromoBanner> {
+  static const _interval = Duration(seconds: 4);
+  final _controller = PageController();
+  Timer? _timer;
+  int _page = 0;
+
+  List<_PromoSlide> get _slides => widget.kind == 'giftcard'
+      ? const [
+          _PromoSlide(title: 'شحن فوري لأشهر الألعاب', subtitle: 'أسعار بالدينار الليبي، يوصلك خلال دقائق', icon: Icons.card_giftcard_rounded),
+          _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.card_giftcard_rounded),
+          _PromoSlide(title: 'محفظتك دايم جاهزة', subtitle: 'اشحن رصيدك مرة واشتري بضغطة وحدة في أي وقت', icon: Icons.card_giftcard_rounded),
+        ]
+      : const [
+          _PromoSlide(title: 'زيادة متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
+          _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.rocket_launch_rounded),
+          _PromoSlide(title: 'تنفيذ آمن وسريع', subtitle: 'خدماتنا موثوقة وأسعارها بالدينار الليبي', icon: Icons.rocket_launch_rounded),
+        ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(_interval, (_) {
+      if (!mounted || !_controller.hasClients) return;
+      final next = (_page + 1) % _slides.length;
+      _controller.animateToPage(next, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isGiftcard = kind == 'giftcard';
+    final isGiftcard = widget.kind == 'giftcard';
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         gradient: LinearGradient(
@@ -354,36 +405,70 @@ class _PromoBanner extends StatelessWidget {
         ),
         boxShadow: AppTheme.cardShadow,
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isGiftcard ? 'شحن فوري لأشهر الألعاب' : 'زيادة متابعين حقيقيين',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isGiftcard ? 'أسعار بالدينار الليبي، يوصلك خلال دقائق' : 'يبدأ التنفيذ مباشرة بعد التأكيد',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
-                ),
-              ],
+          SizedBox(
+            height: 52,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: _slides.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (context, index) {
+                final slide = _slides[index];
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            slide.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            slide.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(slide.icon, color: Colors.white, size: 22),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          const SizedBox(width: 12),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isGiftcard ? Icons.card_giftcard_rounded : Icons.rocket_launch_rounded,
-              color: Colors.white,
-              size: 22,
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _slides.length,
+              (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                width: i == _page ? 14 : 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: i == _page ? 0.95 : 0.4),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
             ),
           ),
         ],
@@ -401,7 +486,8 @@ class _CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
+    return TapScale(
+      child: Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
@@ -478,6 +564,7 @@ class _CategoryCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

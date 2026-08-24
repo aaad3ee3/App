@@ -29,6 +29,21 @@ export async function listCategories(kind?: ProductKind) {
   }));
 }
 
+/** Used by the mobile app's "order again" button — fetches a single product by id,
+ *  refusing one that's gone unavailable or whose category was disabled since the
+ *  customer's last order, the same guard `listProducts` and `createOrder` both apply. */
+export async function getProduct(productId: string) {
+  const product = await repo.getProductById(productId);
+  if (!product || !product.available) {
+    throw new HttpError(404, "not_found", "هذا المنتج لم يعد متاحاً.");
+  }
+  const category = await repo.getCategoryById(product.category_id);
+  if (!category || !category.enabled) {
+    throw new HttpError(404, "not_found", "هذا المنتج لم يعد متاحاً.");
+  }
+  return toProductView(product);
+}
+
 export async function listProducts(categoryId: string) {
   const category = await repo.getCategoryById(categoryId);
   if (!category || !category.enabled) {

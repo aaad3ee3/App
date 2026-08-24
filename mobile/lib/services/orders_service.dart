@@ -5,13 +5,19 @@ class OrdersService {
   OrdersService(this._api);
   final ApiClient _api;
 
-  Future<StoreOrder> createOrder({required String productId, int? quantity, String? targetLink}) async {
+  Future<StoreOrder> createOrder({
+    required String productId,
+    int? quantity,
+    String? targetLink,
+    String? couponCode,
+  }) async {
     final json = await _api.post(
       '/orders',
       body: {
         'product_id': productId,
         'quantity': ?quantity,
         if (targetLink != null && targetLink.isNotEmpty) 'target_link': targetLink,
+        if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
       },
     );
     return StoreOrder.fromJson(json);

@@ -6,8 +6,10 @@ import '../../models/product.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
+import '../../services/favorites_service.dart';
 import '../../utils/arabic_text.dart';
 import '../../widgets/product_tile.dart';
+import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
 
@@ -26,8 +28,10 @@ class CategoryProductsScreen extends StatefulWidget {
 
 class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   late final CatalogService _catalogService;
+  late final FavoritesService _favoritesService;
   final _filterController = TextEditingController();
   List<StoreProduct> _products = [];
+  Set<String> _favoriteIds = {};
   ProductSort _sort = ProductSort.priceAsc;
   String _filter = '';
   bool _loading = true;
@@ -36,7 +40,9 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _catalogService = CatalogService(context.read<AuthStore>().api);
+    final api = context.read<AuthStore>().api;
+    _catalogService = CatalogService(api);
+    _favoritesService = FavoritesService(api);
     _load();
   }
 
@@ -49,10 +55,14 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      final isGuest = context.read<AuthStore>().isGuest;
       final products = await _catalogService.getProducts(widget.category.id);
+      // Best-effort: a favorites lookup failure should never block browsing products.
+      final favoriteIds = isGuest ? <String>{} : await _favoritesService.listIds().catchError((_) => <String>{});
       if (!mounted) return;
       setState(() {
         _products = products;
+        _favoriteIds = favoriteIds;
         _loading = false;
         _error = null;
       });
@@ -61,6 +71,33 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       setState(() {
         _error = e.message;
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(StoreProduct product, bool favorite) async {
+    setState(() {
+      if (favorite) {
+        _favoriteIds = {..._favoriteIds, product.id};
+      } else {
+        _favoriteIds = {..._favoriteIds}..remove(product.id);
+      }
+    });
+    try {
+      if (favorite) {
+        await _favoritesService.add(product.id);
+      } else {
+        await _favoritesService.remove(product.id);
+      }
+    } on ApiException {
+      if (!mounted) return;
+      // Roll back on failure — the star otherwise silently lies about saved state.
+      setState(() {
+        if (favorite) {
+          _favoriteIds = {..._favoriteIds}..remove(product.id);
+        } else {
+          _favoriteIds = {..._favoriteIds, product.id};
+        }
       });
     }
   }
@@ -84,7 +121,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => widget.category.isGiftcard
-            ? GiftcardPurchaseScreen(product: product)
+            ? GiftcardPurchaseScreen(product: product, heroTag: 'product-image-${product.id}')
             : SmmPurchaseScreen(product: product),
       ),
     );
@@ -95,7 +132,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.category.name)),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ListRowSkeleton()
           : _error != null
               ? _ErrorState(message: _error!, onRetry: _load)
               : Column(
@@ -181,6 +218,11 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                 child: ProductTile(
                   product: products[index],
                   onTap: () => _openProduct(products[index]),
+                  heroTag: 'product-image-${products[index].id}',
+                  isFavorite: context.watch<AuthStore>().isGuest ? null : _favoriteIds.contains(products[index].id),
+                  onToggleFavorite: context.watch<AuthStore>().isGuest
+                      ? null
+                      : (value) => _toggleFavorite(products[index], value),
                 ),
               ),
             ),

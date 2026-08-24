@@ -7,9 +7,13 @@ import '../../models/store_order.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
+import '../../services/catalog_service.dart';
 import '../../services/orders_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/money.dart';
+import '../../widgets/shimmer_box.dart';
+import 'giftcard_purchase_screen.dart';
+import 'smm_purchase_screen.dart';
 
 class OrdersHistoryScreen extends StatefulWidget {
   const OrdersHistoryScreen({super.key, this.embedded = false});
@@ -57,7 +61,7 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final body = _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const ListRowSkeleton()
         : _error != null
             ? _OrdersMessage(
                 icon: Icons.wifi_off_rounded,
@@ -163,6 +167,36 @@ _StatusInfo _statusInfo(String status) {
   }
 }
 
+/// "Order again" on a past order — reuses the product id it already carries, skipping the
+/// search-and-browse round trip for something a customer buys on a recurring basis (a
+/// monthly Netflix top-up, the same follower package). Fetches the product fresh rather
+/// than trusting the order's old price/name, since either can have changed since.
+Future<void> _reorder(BuildContext context, StoreOrder order) async {
+  final messenger = ScaffoldMessenger.of(context);
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+  try {
+    final catalogService = CatalogService(context.read<AuthStore>().api);
+    final product = await catalogService.getProduct(order.productId);
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // close the loading dialog
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => order.kind == 'giftcard'
+            ? GiftcardPurchaseScreen(product: product)
+            : SmmPurchaseScreen(product: product),
+      ),
+    );
+  } on ApiException catch (e) {
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
 class _OrderTile extends StatelessWidget {
   const _OrderTile({required this.order});
 
@@ -201,7 +235,31 @@ class _OrderTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Text('${formatLydString(order.totalPrice)} LYD', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${formatLydString(order.totalPrice)} LYD', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (order.status == 'completed')
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _reorder(context, order),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.replay_rounded, size: 13, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 3),
+                            Text(
+                              'اطلب مرة ثانية',
+                              style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

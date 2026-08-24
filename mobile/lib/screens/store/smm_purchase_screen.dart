@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/store_order.dart';
+import '../../models/wallet.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
+import '../../services/coupons_service.dart';
 import '../../services/orders_service.dart';
+import '../../services/wallet_service.dart';
 import '../../utils/money.dart';
+import '../../widgets/balance_warning_card.dart';
+import '../../widgets/coupon_input.dart';
+import '../../widgets/secure_payment_badge.dart';
 import '../../widgets/sign_in_gate.dart';
+import '../topup/topup_screen.dart';
 
 class SmmPurchaseScreen extends StatefulWidget {
   const SmmPurchaseScreen({super.key, required this.product});
@@ -28,6 +36,10 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
   String? _error;
   StoreOrder? _result;
 
+  WalletBalance? _wallet;
+  String? _couponCode;
+  CouponQuote? _couponQuote;
+
   int get _minQuantity => widget.product.minQuantity ?? 1;
   int get _maxQuantity => widget.product.maxQuantity ?? 1000000;
 
@@ -36,12 +48,27 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
     return (widget.product.priceValue / 1000) * qty;
   }
 
+  double get _finalTotal => _couponQuote?.totalAfterDiscount ?? _computedTotal;
+
+  int get _currentQuantity => int.tryParse(_quantityController.text) ?? _minQuantity;
+
   @override
   void initState() {
     super.initState();
-    _ordersService = OrdersService(context.read<AuthStore>().api);
+    final auth = context.read<AuthStore>();
+    _ordersService = OrdersService(auth.api);
     _quantityController = TextEditingController(text: '$_minQuantity');
-    _quantityController.addListener(() => setState(() {}));
+    _quantityController.addListener(() => setState(() {
+          // Any quantity change invalidates a previously-applied coupon quote — its
+          // discount was computed against the old total.
+          _couponCode = null;
+          _couponQuote = null;
+        }));
+    if (!auth.isGuest) {
+      WalletService(auth.api).getBalance().then((w) {
+        if (mounted) setState(() => _wallet = w);
+      }).catchError((_) {});
+    }
   }
 
   @override
@@ -49,6 +76,16 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
     _quantityController.dispose();
     _linkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _goToTopup() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TopupScreen()));
+    final auth = context.read<AuthStore>();
+    if (!auth.isGuest && mounted) {
+      WalletService(auth.api).getBalance().then((w) {
+        if (mounted) setState(() => _wallet = w);
+      }).catchError((_) {});
+    }
   }
 
   Future<void> _submit() async {
@@ -66,8 +103,10 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
         productId: widget.product.id,
         quantity: int.parse(_quantityController.text),
         targetLink: _linkController.text.trim(),
+        couponCode: _couponCode,
       );
       if (!mounted) return;
+      HapticFeedback.mediumImpact();
       setState(() {
         _result = order;
         _submitting = false;
@@ -95,6 +134,8 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
   }
 
   Widget _buildForm() {
+    final insufficientBalance = _wallet != null && _wallet!.amount < _finalTotal;
+
     return Form(
       key: _formKey,
       child: Column(
@@ -132,17 +173,46 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
             color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  const Text('الإجمالي المتوقع'),
-                  Text(
-                    '${formatLyd(_computedTotal)} LYD',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_couponQuote != null ? 'الإجمالي قبل الخصم' : 'الإجمالي المتوقع'),
+                      Text(
+                        '${formatLyd(_computedTotal)} LYD',
+                        style: TextStyle(
+                          fontSize: _couponQuote != null ? 15 : 20,
+                          fontWeight: FontWeight.bold,
+                          decoration: _couponQuote != null ? TextDecoration.lineThrough : null,
+                          color: _couponQuote != null ? Theme.of(context).colorScheme.onSurfaceVariant : null,
+                        ),
+                      ),
+                    ],
                   ),
+                  if (_couponQuote != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('الإجمالي بعد الخصم', style: TextStyle(fontWeight: FontWeight.w700)),
+                        Text('${formatLyd(_finalTotal)} LYD', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          CouponInput(
+            key: ValueKey(_currentQuantity),
+            productId: widget.product.id,
+            quantity: _currentQuantity,
+            onQuoteChanged: (code, quote) => setState(() {
+              _couponCode = code;
+              _couponQuote = quote;
+            }),
           ),
           const SizedBox(height: 12),
           // SMM orders can take hours, so saying so up front prevents the "I paid and
@@ -164,17 +234,23 @@ class _SmmPurchaseScreenState extends State<SmmPurchaseScreen> {
             'تأكد من صحة الرابط — التنفيذ يتم على ما أدخلته ولا يمكن التراجع عنه.',
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12.5),
           ),
+          if (insufficientBalance) ...[
+            const SizedBox(height: 16),
+            BalanceWarningCard(balance: _wallet!.amount, required: _finalTotal, onTopUp: _goToTopup),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 16),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           FilledButton(
-            onPressed: _submitting ? null : _submit,
+            onPressed: (_submitting || insufficientBalance) ? null : _submit,
             child: _submitting
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text('اطلب الآن'),
           ),
+          const SizedBox(height: 10),
+          const SecurePaymentBadge(),
         ],
       ),
     );

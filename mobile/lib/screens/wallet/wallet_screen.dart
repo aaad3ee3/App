@@ -25,6 +25,9 @@ class _WalletScreenState extends State<WalletScreen> {
   List<WalletTransaction> _transactions = [];
   TopupRequest? _pendingTopup;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  int _page = 1;
   String? _error;
 
   @override
@@ -44,16 +47,18 @@ class _WalletScreenState extends State<WalletScreen> {
     try {
       final results = await Future.wait([
         _walletService.getBalance(),
-        _walletService.getTransactions(),
+        _walletService.getTransactions(page: 1),
         _topupService.list(),
       ]);
       final balance = results[0] as WalletBalance;
-      final transactions = results[1] as List<WalletTransaction>;
+      final transactionsPage = results[1] as ({List<WalletTransaction> items, bool hasMore});
       final topups = results[2] as List<TopupRequest>;
       if (!mounted) return;
       setState(() {
         _balance = balance;
-        _transactions = transactions;
+        _transactions = transactionsPage.items;
+        _hasMore = transactionsPage.hasMore;
+        _page = 1;
         _pendingTopup = topups.where((t) => t.isPending).isEmpty
             ? null
             : topups.firstWhere((t) => t.isPending);
@@ -65,6 +70,23 @@ class _WalletScreenState extends State<WalletScreen> {
         _error = e.message;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _loadingMore = true);
+    try {
+      final nextPage = await _walletService.getTransactions(page: _page + 1);
+      if (!mounted) return;
+      setState(() {
+        _transactions = [..._transactions, ...nextPage.items];
+        _hasMore = nextPage.hasMore;
+        _page += 1;
+        _loadingMore = false;
+      });
+    } on ApiException {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
     }
   }
 
@@ -111,8 +133,20 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Text('لا توجد حركات بعد', style: TextStyle(color: Colors.grey.shade600)),
               ),
             )
-          else
+          else ...[
             ..._transactions.map((t) => _TransactionTile(transaction: t)),
+            if (_hasMore) ...[
+              const SizedBox(height: 4),
+              Center(
+                child: _loadingMore
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : OutlinedButton(onPressed: _loadMore, child: const Text('تحميل المزيد')),
+              ),
+            ],
+          ],
         ],
       ),
     );

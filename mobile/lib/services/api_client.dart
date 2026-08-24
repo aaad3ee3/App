@@ -27,6 +27,8 @@ class ApiClient {
 
   Future<Map<String, dynamic>> post(String path, {Object? body}) => _request('POST', path, body: body);
 
+  Future<Map<String, dynamic>> delete(String path) => _request('DELETE', path);
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
@@ -46,6 +48,9 @@ class ApiClient {
           break;
         case 'POST':
           response = await http.post(uri, headers: headers, body: body != null ? jsonEncode(body) : null);
+          break;
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers);
           break;
         default:
           throw UnsupportedError('Unsupported HTTP method: $method');

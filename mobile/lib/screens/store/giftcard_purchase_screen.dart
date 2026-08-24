@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/store_order.dart';
+import '../../models/wallet.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/app_config.dart';
+import '../../services/coupons_service.dart';
 import '../../services/orders_service.dart';
+import '../../services/wallet_service.dart';
+import '../../widgets/balance_warning_card.dart';
+import '../../widgets/coupon_input.dart';
+import '../../widgets/secure_payment_badge.dart';
 import '../../widgets/sign_in_gate.dart';
+import '../topup/topup_screen.dart';
 
 class GiftcardPurchaseScreen extends StatefulWidget {
-  const GiftcardPurchaseScreen({super.key, required this.product});
+  const GiftcardPurchaseScreen({super.key, required this.product, this.heroTag});
 
   final StoreProduct product;
+  final Object? heroTag;
 
   @override
   State<GiftcardPurchaseScreen> createState() => _GiftcardPurchaseScreenState();
@@ -23,10 +32,32 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
   String? _error;
   StoreOrder? _result;
 
+  WalletBalance? _wallet;
+  String? _couponCode;
+  CouponQuote? _couponQuote;
+
   @override
   void initState() {
     super.initState();
-    _ordersService = OrdersService(context.read<AuthStore>().api);
+    final auth = context.read<AuthStore>();
+    _ordersService = OrdersService(auth.api);
+    if (!auth.isGuest) {
+      WalletService(auth.api).getBalance().then((w) {
+        if (mounted) setState(() => _wallet = w);
+      }).catchError((_) {});
+    }
+  }
+
+  double get _finalPrice => _couponQuote?.totalAfterDiscount ?? widget.product.priceValue;
+
+  Future<void> _goToTopup() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TopupScreen()));
+    final auth = context.read<AuthStore>();
+    if (!auth.isGuest && mounted) {
+      WalletService(auth.api).getBalance().then((w) {
+        if (mounted) setState(() => _wallet = w);
+      }).catchError((_) {});
+    }
   }
 
   Future<void> _confirmPurchase() async {
@@ -38,7 +69,9 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('تأكيد الشراء'),
-        content: Text('راح يتم خصم ${widget.product.formattedPrice} ${widget.product.currency} من محفظتك مقابل "${widget.product.name}". متأكد؟'),
+        content: Text(
+          'راح يتم خصم ${_finalPrice.toStringAsFixed(2)} ${widget.product.currency} من محفظتك مقابل "${widget.product.name}". متأكد؟',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
           FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('تأكيد')),
@@ -52,8 +85,10 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
       _error = null;
     });
     try {
-      final order = await _ordersService.createOrder(productId: widget.product.id);
+      final order = await _ordersService.createOrder(productId: widget.product.id, couponCode: _couponCode);
       if (!mounted) return;
+      // A light, physical confirmation right as the money actually moves.
+      HapticFeedback.mediumImpact();
       setState(() {
         _result = order;
         _submitting = false;
@@ -81,6 +116,8 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
   }
 
   Widget _buildForm() {
+    final insufficientBalance = _wallet != null && _wallet!.amount < _finalPrice;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -89,11 +126,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
             borderRadius: BorderRadius.circular(16),
             child: AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.network(
-                widget.product.image!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200),
-              ),
+              child: _heroImage(),
             ),
           ),
         const SizedBox(height: 16),
@@ -107,17 +140,48 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
           color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                const Text('السعر'),
-                Text(
-                  '${widget.product.formattedPrice} ${widget.product.currency}',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('السعر'),
+                    Text(
+                      '${widget.product.formattedPrice} ${widget.product.currency}',
+                      style: TextStyle(
+                        fontSize: _couponQuote != null ? 15 : 22,
+                        fontWeight: FontWeight.bold,
+                        decoration: _couponQuote != null ? TextDecoration.lineThrough : null,
+                        color: _couponQuote != null ? Theme.of(context).colorScheme.onSurfaceVariant : null,
+                      ),
+                    ),
+                  ],
                 ),
+                if (_couponQuote != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('الإجمالي بعد الخصم', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        '${_finalPrice.toStringAsFixed(2)} ${widget.product.currency}',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        CouponInput(
+          productId: widget.product.id,
+          quantity: 1,
+          onQuoteChanged: (code, quote) => setState(() {
+            _couponCode = code;
+            _couponQuote = quote;
+          }),
         ),
         const SizedBox(height: 12),
         // Answers the question every customer has before paying and none of our
@@ -134,19 +198,34 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
             ),
           ],
         ),
+        if (insufficientBalance) ...[
+          const SizedBox(height: 16),
+          BalanceWarningCard(balance: _wallet!.amount, required: _finalPrice, onTopUp: _goToTopup),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 16),
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         FilledButton(
-          onPressed: _submitting ? null : _confirmPurchase,
+          onPressed: (_submitting || insufficientBalance) ? null : _confirmPurchase,
           child: _submitting
               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Text('اشتري الآن'),
         ),
+        const SizedBox(height: 10),
+        const SecurePaymentBadge(),
       ],
     );
+  }
+
+  Widget _heroImage() {
+    final image = Image.network(
+      widget.product.image!,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200),
+    );
+    return widget.heroTag != null ? Hero(tag: widget.heroTag!, child: image) : image;
   }
 }
 

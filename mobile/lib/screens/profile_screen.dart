@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import 'auth/delete_account_screen.dart';
 import 'auth/link_phone_screen.dart';
 import 'auth/login_screen.dart';
+import 'referral_screen.dart';
+import 'store/favorites_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -79,6 +81,33 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.favorite_border_rounded, color: AppColors.danger),
+                title: const Text('المفضلة'),
+                subtitle: const Text('المنتجات الي حفظتها', style: TextStyle(fontSize: 12.5)),
+                trailing: const Icon(Icons.chevron_left_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.card_giftcard_rounded, color: AppColors.gold),
+                title: const Text('ادعُ صديق'),
+                subtitle: const Text('شارك كودك واكسبوا رصيد مجاني', style: TextStyle(fontSize: 12.5)),
+                trailing: const Icon(Icons.chevron_left_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ReferralScreen()),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),

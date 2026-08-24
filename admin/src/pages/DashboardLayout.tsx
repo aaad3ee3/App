@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/sms-events", label: "رسائل الشحن" },
   { to: "/catalog", label: "الكتالوج" },
   { to: "/orders", label: "الطلبات" },
+  { to: "/coupons", label: "الكوبونات" },
 ];
 
 export function DashboardLayout() {

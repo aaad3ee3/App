@@ -8,6 +8,7 @@ import { TopupsPage } from "./pages/TopupsPage";
 import { SmsEventsPage } from "./pages/SmsEventsPage";
 import { CatalogPage } from "./pages/CatalogPage";
 import { OrdersPage } from "./pages/OrdersPage";
+import { CouponsPage } from "./pages/CouponsPage";
 
 function ProtectedArea() {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/sms-events" element={<SmsEventsPage />} />
             <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/coupons" element={<CouponsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

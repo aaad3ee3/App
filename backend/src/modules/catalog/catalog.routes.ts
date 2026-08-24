@@ -35,6 +35,14 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { items: await catalogService.listProducts(id) };
   });
 
+  // Used by the mobile app's "order again" button on a past order, which only has the
+  // product id on hand — the category it lives in is not something a completed order
+  // carries around.
+  app.get("/products/:id", async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    return catalogService.getProduct(id);
+  });
+
   app.get(
     "/search",
     {

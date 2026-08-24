@@ -9,6 +9,11 @@ class StoreProduct {
   final int? minQuantity;
   final int? maxQuantity;
 
+  /// True for a top-3 (by completed order count) product within its category — shown to
+  /// the customer as a "most ordered" badge. Defaults to false so an older backend
+  /// response with no such field simply shows no badge instead of crashing.
+  final bool popular;
+
   StoreProduct({
     required this.id,
     required this.name,
@@ -19,6 +24,7 @@ class StoreProduct {
     required this.pricePer1000,
     required this.minQuantity,
     required this.maxQuantity,
+    this.popular = false,
   });
 
   factory StoreProduct.fromJson(Map<String, dynamic> json) => StoreProduct(
@@ -31,6 +37,7 @@ class StoreProduct {
         pricePer1000: json['price_per_1000'] as bool? ?? false,
         minQuantity: (json['min_quantity'] as num?)?.toInt(),
         maxQuantity: (json['max_quantity'] as num?)?.toInt(),
+        popular: json['popular'] as bool? ?? false,
       );
 
   double get priceValue => double.tryParse(price) ?? 0;
