@@ -183,6 +183,13 @@ class _StoreScreenState extends State<StoreScreen> {
             onSelectionChanged: (s) => _switchKind(s.first),
           ),
         ),
+        // Only shown on the browse view — a banner above a search results list reads as
+        // noise between the customer and the thing they're actively looking for.
+        if (!_isSearching)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _PromoBanner(kind: _kind),
+          ),
         Expanded(child: _isSearching ? _buildSearchResults() : _buildCategories()),
       ],
     );
@@ -291,6 +298,69 @@ class _CenteredMessage extends StatelessWidget {
             if (action != null) ...[const SizedBox(height: 14), action!],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A brand-colored strip above the category grid — the browse view otherwise opens
+/// straight into a search field and a grid, which reads as bare next to a home screen
+/// with any promotional content on it. Built from the existing palette and icons rather
+/// than illustration assets, so there's nothing here that can fail to load.
+class _PromoBanner extends StatelessWidget {
+  const _PromoBanner({required this.kind});
+
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final isGiftcard = kind == 'giftcard';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        gradient: LinearGradient(
+          begin: Alignment.centerRight,
+          end: Alignment.centerLeft,
+          colors: isGiftcard
+              ? [AppColors.navy, AppColors.navyLight]
+              : [AppColors.goldDark, AppColors.gold],
+        ),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isGiftcard ? 'شحن فوري لأشهر الألعاب' : 'زيادة متابعين حقيقيين',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isGiftcard ? 'أسعار بالدينار الليبي، يوصلك خلال دقائق' : 'يبدأ التنفيذ مباشرة بعد التأكيد',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isGiftcard ? Icons.card_giftcard_rounded : Icons.rocket_launch_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
