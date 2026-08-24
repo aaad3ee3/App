@@ -91,7 +91,7 @@ https://sayeh-admin.onrender.com      ← لوحة الأدمن
 
 ```bash
 cd mobile
-flutter build apk --release --dart-define=API_BASE_URL=https://sayeh-api.onrender.com/api/v1
+flutter build apk --release --dart-define=API_BASE_URL=https://sayeh-api.onrender.com
 ```
 
 الملف يطلع في `build/app/outputs/flutter-apk/app-release.apk` — هذا اللي تنشره لأول مستخدمين تجربونهم.
