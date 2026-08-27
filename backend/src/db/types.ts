@@ -41,7 +41,7 @@ export interface WalletRow {
 }
 
 export type WalletTxType = "topup_credit" | "order_debit" | "admin_adjustment" | "refund" | "referral_bonus";
-export type WalletTxReferenceType = "topup_request" | "order" | "manual";
+export type WalletTxReferenceType = "topup_request" | "order" | "manual" | "binance_topup";
 
 export interface WalletTransactionRow {
   id: string;
@@ -64,7 +64,8 @@ export interface TopupRequestRow {
   id: string;
   user_id: string;
   sender_phone: string;
-  requested_amount: string;
+  /** Null means "credit whatever amount arrives" — see sms.repository.ts `findMatchCandidates`. */
+  requested_amount: string | null;
   status: TopupStatus;
   matched_sms_event_id: string | null;
   credited_wallet_transaction_id: string | null;
@@ -187,6 +188,23 @@ export interface CouponRow {
   max_uses_per_user: number;
   enabled: boolean;
   expires_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type BinanceTopupStatus = "pending" | "credited" | "failed";
+
+export interface BinanceTopupRow {
+  id: string;
+  user_id: string;
+  binance_order_id: string;
+  binance_transaction_id: string | null;
+  amount_usdt: string | null;
+  currency: string | null;
+  amount_lyd: string | null;
+  status: BinanceTopupStatus;
+  failure_reason: string | null;
+  wallet_transaction_id: string | null;
   created_at: Date;
   updated_at: Date;
 }

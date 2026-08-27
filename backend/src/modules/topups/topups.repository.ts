@@ -6,14 +6,14 @@ import type { TopupRequestRow, TopupStatus } from "../../db/types";
 export const UNIQUE_VIOLATION = "23505";
 
 export function insertPending(
-  input: { userId: string; senderPhone: string; requestedAmount: number; expiresAt: Date },
+  input: { userId: string; senderPhone: string; requestedAmount: number | null; expiresAt: Date },
   trx: Knex | Knex.Transaction = db
 ): Promise<TopupRequestRow[]> {
   return trx<TopupRequestRow>("topup_requests")
     .insert({
       user_id: input.userId,
       sender_phone: input.senderPhone,
-      requested_amount: fromMillieme(toMillieme(input.requestedAmount)),
+      requested_amount: input.requestedAmount === null ? null : fromMillieme(toMillieme(input.requestedAmount)),
       status: "pending",
       expires_at: input.expiresAt,
     })

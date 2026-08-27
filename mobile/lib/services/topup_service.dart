@@ -5,10 +5,12 @@ class TopupService {
   TopupService(this._api);
   final ApiClient _api;
 
-  Future<TopupRequest> create({required String senderPhone, required double amount}) async {
+  /// [amount] is optional — a customer who skips it can transfer any amount, and
+  /// whatever the confirmation SMS says gets credited (see topups.schemas.ts).
+  Future<TopupRequest> create({required String senderPhone, double? amount}) async {
     final json = await _api.post(
       '/topups',
-      body: {'sender_phone': senderPhone, 'requested_amount': amount},
+      body: {'sender_phone': senderPhone, if (amount != null) 'requested_amount': amount},
     );
     return TopupRequest.fromJson(json);
   }

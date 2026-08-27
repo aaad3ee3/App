@@ -21,6 +21,7 @@ import configRoutes from "./modules/config/config.routes";
 import favoritesRoutes from "./modules/favorites/favorites.routes";
 import referralRoutes from "./modules/referral/referral.routes";
 import couponsRoutes from "./modules/coupons/coupons.routes";
+import binanceTopupRoutes from "./modules/binance-topup/binance-topup.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -100,6 +101,7 @@ export function buildApp() {
   app.register(favoritesRoutes, { prefix: "/api/v1/favorites" });
   app.register(referralRoutes, { prefix: "/api/v1/referral" });
   app.register(couponsRoutes, { prefix: "/api/v1/coupons" });
+  app.register(binanceTopupRoutes, { prefix: "/api/v1/topups/binance" });
 
   return app;
 }

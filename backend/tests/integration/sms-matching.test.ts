@@ -160,6 +160,43 @@ describe("processIncomingSms — matching & crediting pipeline", () => {
     expect(ledgerRows).toHaveLength(1);
   });
 
+  it("an amount-free request (no requested_amount declared) credits whatever the SMS says", async () => {
+    const { user } = await createTestUser();
+    await createPendingTopup({ userId: user.id, senderPhone: "0966677788" }); // no requestedAmount
+
+    const result = await processIncomingSms({
+      rawPayload: {},
+      rawText: libyanaSmsText(37.5, "0966677788"),
+      reportedSender: TRUSTED_SENDER,
+      providerMessageId: "msg-free-1",
+    });
+
+    expect(result.matchStatus).toBe("matched");
+    const wallet = await walletRepo.getWalletByUserId(user.id);
+    expect(Number(wallet!.balance)).toBe(37.5);
+
+    const updatedTopup = await db("topup_requests").where({ user_id: user.id }).first();
+    expect(updatedTopup.status).toBe("credited");
+  });
+
+  it("an amount-free request still goes ambiguous if a second pending request shares the phone", async () => {
+    const { user: userA } = await createTestUser();
+    const { user: userB } = await createTestUser();
+    await createPendingTopup({ userId: userA.id, senderPhone: "0977788899" }); // amount-free
+    await createPendingTopup({ userId: userB.id, senderPhone: "0977788899", requestedAmount: 20 });
+
+    const result = await processIncomingSms({
+      rawPayload: {},
+      rawText: libyanaSmsText(20, "0977788899"),
+      reportedSender: TRUSTED_SENDER,
+      providerMessageId: "msg-free-2",
+    });
+
+    expect(result.matchStatus).toBe("ambiguous");
+    expect(Number((await walletRepo.getWalletByUserId(userA.id))!.balance)).toBe(0);
+    expect(Number((await walletRepo.getWalletByUserId(userB.id))!.balance)).toBe(0);
+  });
+
   it("rejects a phone number normalization mismatch (e.g. +218 prefix vs local 0-prefix) correctly", async () => {
     const { user } = await createTestUser();
     // User registered the sender phone in local form...

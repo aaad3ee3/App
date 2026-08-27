@@ -6,7 +6,7 @@ import type { CategoryRow, ProductKind, ProductRow, Supplier, UserRow, WalletRow
 
 export async function resetDb(): Promise<void> {
   await db.raw(
-    `TRUNCATE TABLE admin_actions, coupon_redemptions, coupons, favorites, orders, products, categories, wallet_transactions, sms_events, topup_requests, sessions, wallets, device_tokens, users RESTART IDENTITY CASCADE`
+    `TRUNCATE TABLE admin_actions, coupon_redemptions, coupons, favorites, binance_topups, orders, products, categories, wallet_transactions, sms_events, topup_requests, sessions, wallets, device_tokens, users RESTART IDENTITY CASCADE`
   );
 }
 
@@ -39,14 +39,15 @@ export async function createTestUser(overrides: Partial<Pick<UserRow, "email" | 
 export async function createPendingTopup(input: {
   userId: string;
   senderPhone: string;
-  requestedAmount: number;
+  /** Omit to test the "credit whatever amount arrives" path — see sms.repository.ts. */
+  requestedAmount?: number;
   expiresInMinutes?: number;
 }) {
   const [topup] = await db("topup_requests")
     .insert({
       user_id: input.userId,
       sender_phone: input.senderPhone,
-      requested_amount: input.requestedAmount,
+      requested_amount: input.requestedAmount ?? null,
       status: "pending",
       expires_at: new Date(Date.now() + (input.expiresInMinutes ?? 120) * 60_000),
     })

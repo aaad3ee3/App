@@ -10,7 +10,7 @@ interface TopupRow {
   id: string;
   user_id: string;
   sender_phone: string;
-  requested_amount: string;
+  requested_amount: string | null;
   status: string;
   expires_at: string;
   created_at: string;
@@ -120,7 +120,7 @@ export function TopupsPage() {
                     <Link to={`/users/${t.user_id}`}>{t.user_id.slice(0, 8)}…</Link>
                   </td>
                   <td>{t.sender_phone}</td>
-                  <td>{formatMoney(t.requested_amount)} LYD</td>
+                  <td>{t.requested_amount ? `${formatMoney(t.requested_amount)} LYD` : "أي مبلغ"}</td>
                   <td>
                     <StatusBadge status={t.status} />
                   </td>
@@ -177,8 +177,15 @@ export function TopupsPage() {
           }}
         >
           <p>
-            هترفض طلب شحن بمبلغ <b>{formatMoney(modal.row.requested_amount)} LYD</b> من الرقم{" "}
-            <b>{modal.row.sender_phone}</b>.
+            هترفض طلب شحن{" "}
+            {modal.row.requested_amount ? (
+              <>
+                بمبلغ <b>{formatMoney(modal.row.requested_amount)} LYD</b>{" "}
+              </>
+            ) : (
+              "بأي مبلغ "
+            )}
+            من الرقم <b>{modal.row.sender_phone}</b>.
           </p>
         </ConfirmModal>
       )}
@@ -191,7 +198,7 @@ export function TopupsPage() {
 }
 
 function CreditModal({ row, onClose, onDone }: { row: TopupRow; onClose: () => void; onDone: () => void }) {
-  const [amount, setAmount] = useState(row.requested_amount);
+  const [amount, setAmount] = useState(row.requested_amount ?? "");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

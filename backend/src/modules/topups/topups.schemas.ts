@@ -3,7 +3,10 @@ import { TOPUP_STATUS } from "../../config/constants";
 
 export const createTopupSchema = z.object({
   sender_phone: z.string().trim().min(1),
-  requested_amount: z.coerce.number().positive().max(1_000_000),
+  // Optional: a customer who doesn't know the exact figure yet (or doesn't want to
+  // bother declaring one) can omit it and transfer any amount — see
+  // sms.repository.ts `findMatchCandidates`, which then credits whatever the SMS says.
+  requested_amount: z.coerce.number().positive().max(1_000_000).optional(),
 });
 export type CreateTopupInput = z.infer<typeof createTopupSchema>;
 

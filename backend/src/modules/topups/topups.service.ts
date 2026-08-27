@@ -17,7 +17,7 @@ export async function createTopup(userId: string, input: CreateTopupInput) {
     const [row] = await repo.insertPending({
       userId,
       senderPhone,
-      requestedAmount: input.requested_amount,
+      requestedAmount: input.requested_amount ?? null,
       expiresAt,
     });
     return row;

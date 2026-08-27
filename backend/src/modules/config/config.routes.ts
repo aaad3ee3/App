@@ -38,6 +38,12 @@ export default async function configRoutes(app: FastifyInstance) {
       giftcard_minutes: 5,
       smm_hours: 24,
     },
+    payments: {
+      // Null switches the Binance Pay option off in the top-up screen instead of showing
+      // one that always fails at verify time. Public by design — a Pay ID identifies
+      // where to send money, it authorises nothing on its own.
+      binance_pay_id: env.BINANCE_API_KEY && env.BINANCE_API_SECRET ? env.BINANCE_PAY_ID ?? null : null,
+    },
     // Force-update gate — see APP_MIN_SUPPORTED_VERSION in config/env.ts. Checked on
     // every launch so an old sideloaded build can be retired without messaging anyone
     // individually.

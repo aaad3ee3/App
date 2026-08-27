@@ -14,6 +14,7 @@ export const WALLET_TX_REFERENCE_TYPES = {
   TOPUP_REQUEST: "topup_request",
   ORDER: "order",
   MANUAL: "manual",
+  BINANCE_TOPUP: "binance_topup",
 } as const;
 
 export const TOPUP_STATUS = {

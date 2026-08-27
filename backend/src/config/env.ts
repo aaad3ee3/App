@@ -179,6 +179,21 @@ const envSchema = z.object({
   // REENGAGEMENT_MIN_GAP_DAYS, gets one push reminder.
   REENGAGEMENT_INACTIVE_DAYS: z.coerce.number().int().positive().default(7),
   REENGAGEMENT_MIN_GAP_DAYS: z.coerce.number().int().positive().default(7),
+
+  // Binance Pay top-up (binance-topup.service.ts). The key MUST be "Enable Reading" only
+  // — never trading/withdrawal — see deploy docs. Absent means the feature is disabled:
+  // the /config endpoint won't advertise a Pay ID and the verify endpoint 503s, the same
+  // "off unless configured" pattern as FCM and the supplier adapters.
+  BINANCE_API_KEY: z.string().optional(),
+  BINANCE_API_SECRET: z.string().optional(),
+  // The Pay ID or account identifier customers send USDT to — shown in the app's top-up
+  // screen. Public by nature (it's what you'd hand anyone to receive a payment).
+  BINANCE_PAY_ID: z.string().optional(),
+  // NO sane default exists for a parallel-market rate — this MUST be set to the real
+  // current rate before enabling Binance top-ups for real. Separate from
+  // PLUS_USD_TO_LYD_RATE (a cost-pricing input) since a deposit rate is a different
+  // business decision that can reasonably move independently.
+  BINANCE_TOPUP_USD_TO_LYD_RATE: z.coerce.number().positive().default(5),
 });
 
 export type Env = z.infer<typeof envSchema>;

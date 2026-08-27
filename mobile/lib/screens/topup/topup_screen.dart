@@ -80,9 +80,10 @@ class _TopupScreenState extends State<TopupScreen> {
       _error = null;
     });
     try {
+      final amountText = _amountController.text.trim();
       final topup = await _topupService.create(
         senderPhone: phone,
-        amount: double.parse(_amountController.text.trim()),
+        amount: amountText.isEmpty ? null : double.parse(amountText),
       );
       if (!mounted) return;
       setState(() {
@@ -261,12 +262,23 @@ class _TopupScreenState extends State<TopupScreen> {
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(labelText: 'المبلغ الذي قمت (أو راح تقوم) بتحويله (د.ل)'),
+            decoration: const InputDecoration(
+              labelText: 'المبلغ (اختياري)',
+              hintText: 'اتركه فاضي إذا ما تعرف المبلغ بالضبط',
+            ),
+            // Optional: an empty field is valid — see topup_service.dart's `create`.
             validator: (v) {
-              final n = double.tryParse((v ?? '').trim());
-              if (n == null || n <= 0) return 'أدخل مبلغًا صحيحًا';
+              final text = (v ?? '').trim();
+              if (text.isEmpty) return null;
+              final n = double.tryParse(text);
+              if (n == null || n <= 0) return 'أدخل مبلغًا صحيحًا أو اتركه فاضي';
               return null;
             },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'لو تركته فاضي، راح نشحن رصيدك بنفس المبلغ اللي تحوّله فعلياً — مهما كان.',
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),
@@ -326,7 +338,9 @@ class _PendingView extends StatelessWidget {
                 _InstructionStep(number: 1, text: 'افتح تطبيق ليبيانا أو *121# من رقمك ${topup.senderPhone}'),
                 _InstructionStep(
                   number: 2,
-                  text: 'حوّل مبلغ ${topup.requestedAmount} دينار إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}',
+                  text: topup.requestedAmount != null
+                      ? 'حوّل مبلغ ${topup.requestedAmount} دينار إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}'
+                      : 'حوّل أي مبلغ تحب إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}',
                 ),
                 const _InstructionStep(number: 3, text: 'راح يتم شحن رصيدك تلقائيًا خلال دقائق من التحويل'),
               ],

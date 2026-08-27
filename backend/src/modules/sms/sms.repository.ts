@@ -92,6 +92,12 @@ export async function listEventsByMatchStatus(
  * Candidate pending top-ups for a parsed SMS, locked `FOR UPDATE SKIP LOCKED` so two
  * concurrent webhook deliveries never race on the same row. Must be called inside a
  * transaction — the lock is released on commit/rollback.
+ *
+ * A request with no declared `requested_amount` (see topups.service.ts — a customer can
+ * skip declaring one) matches ANY amount from its phone, not just one within tolerance —
+ * that's the whole point of not declaring a figure. This can only widen which requests
+ * are *candidates*, never silently pick one: two or more candidates (declared or not)
+ * still falls through to the ambiguous, no-auto-credit path below in sms.matcher.ts.
  */
 export function findMatchCandidates(
   trx: Knex.Transaction,
@@ -100,7 +106,9 @@ export function findMatchCandidates(
   return trx<TopupRequestRow>("topup_requests")
     .where({ status: "pending", sender_phone: params.senderPhone })
     .andWhere("expires_at", ">", params.now)
-    .andWhereRaw("ABS(requested_amount - ?) <= ?", [params.amount, params.toleranceLyd])
+    .andWhere((qb) =>
+      qb.whereNull("requested_amount").orWhereRaw("ABS(requested_amount - ?) <= ?", [params.amount, params.toleranceLyd])
+    )
     .orderBy("created_at", "asc")
     .forUpdate()
     .skipLocked();

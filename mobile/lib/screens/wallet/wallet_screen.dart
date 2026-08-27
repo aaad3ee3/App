@@ -263,7 +263,9 @@ class _PendingTopupBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'طلب شحن بقيمة ${topup.requestedAmount} بانتظار التحويل',
+                      topup.requestedAmount != null
+                          ? 'طلب شحن بقيمة ${topup.requestedAmount} بانتظار التحويل'
+                          : 'طلب شحن بانتظار التحويل',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),

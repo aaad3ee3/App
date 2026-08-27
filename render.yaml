@@ -57,6 +57,17 @@ services:
         sync: false
       - key: PLUS_USD_TO_LYD_RATE
         sync: false
+      # Binance Pay top-up — optional. Leave all four unset and the feature simply stays
+      # off (the app hides the option). See deploy/render-neon/README.md before setting
+      # these: the API key MUST be "Enable Reading" only, never trading/withdrawal.
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: BINANCE_PAY_ID
+        sync: false
+      - key: BINANCE_TOPUP_USD_TO_LYD_RATE
+        sync: false
 
   - type: web
     name: sayeh-admin
