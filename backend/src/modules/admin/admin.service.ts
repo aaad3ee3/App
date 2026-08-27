@@ -9,6 +9,7 @@ import * as catalogSyncService from "../catalog/catalog-sync.service";
 import * as ordersService from "../orders/orders.service";
 import * as smsRepo from "../sms/sms.repository";
 import * as topupsRepo from "../topups/topups.repository";
+import * as binanceTopupRepo from "../binance-topup/binance-topup.repository";
 import * as walletRepo from "../wallet/wallet.repository";
 import * as notifications from "../notifications/notifications.service";
 import * as couponsService from "../coupons/coupons.service";
@@ -161,6 +162,12 @@ export async function creditTopupManually(adminId: string, topupId: string, amou
 
     return { ok: true, already_applied: walletTx === null };
   });
+}
+
+export async function listBinanceTopups(page: number, pageSize: number) {
+  const limit = Math.min(Math.max(pageSize, 1), 100);
+  const offset = (Math.max(page, 1) - 1) * limit;
+  return binanceTopupRepo.listAllAdmin({ limit, offset });
 }
 
 export async function listUsers(page: number, pageSize: number) {

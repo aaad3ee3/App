@@ -6,6 +6,18 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { Modal } from "../components/Modal";
 import { formatMoney } from "../utils/format";
 
+interface BinanceTopupRow {
+  id: string;
+  user_id: string;
+  binance_order_id: string;
+  binance_transaction_id: string | null;
+  amount_usdt: string | null;
+  currency: string | null;
+  amount_lyd: string | null;
+  status: string;
+  created_at: string;
+}
+
 interface TopupRow {
   id: string;
   user_id: string;
@@ -33,6 +45,15 @@ export function TopupsPage() {
   const [items, setItems] = useState<TopupRow[]>([]);
   const [total, setTotal] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
+  const method = searchParams.get("method") === "binance" ? "binance" : "libyana";
+  const setMethod = (value: "libyana" | "binance") => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("method", value);
+      next.set("page", "1");
+      return next;
+    });
+  };
   const page = Number(searchParams.get("page") ?? "1");
   const status = searchParams.get("status") ?? "";
   const setPage = (updater: (p: number) => number) => {
@@ -57,6 +78,7 @@ export function TopupsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    if (method !== "libyana") return;
     let cancelled = false;
     setLoading(true);
     const qs = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) });
@@ -74,7 +96,7 @@ export function TopupsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, status, refreshKey]);
+  }, [method, page, status, refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const REJECTABLE = ["pending", "manual_review"];
@@ -82,7 +104,20 @@ export function TopupsPage() {
 
   return (
     <div>
-      <h1 className="page-title">طلبات الشحن (Libyana)</h1>
+      <h1 className="page-title">طلبات الشحن</h1>
+      <div className="tabs">
+        <button className={method === "libyana" ? "active" : ""} onClick={() => setMethod("libyana")}>
+          ليبيانا
+        </button>
+        <button className={method === "binance" ? "active" : ""} onClick={() => setMethod("binance")}>
+          Binance Pay
+        </button>
+      </div>
+
+      {method === "binance" ? (
+        <BinanceTopupsSection />
+      ) : (
+        <>
       <div className="toolbar">
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           {STATUSES.map((s) => (
@@ -192,6 +227,73 @@ export function TopupsPage() {
 
       {modal?.type === "credit" && (
         <CreditModal row={modal.row} onClose={() => setModal(null)} onDone={() => setRefreshKey((k) => k + 1)} />
+      )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function BinanceTopupsSection() {
+  const [items, setItems] = useState<BinanceTopupRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api
+      .get<{ items: BinanceTopupRow[]; total: number }>("/admin/binance-topups?page=1&page_size=50")
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.items);
+        setError(null);
+      })
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : "حدث خطأ"))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="card">
+      {loading && <div className="loading-text">جارٍ التحميل…</div>}
+      {error && (
+        <div className="error-text" aria-live="polite">
+          {error}
+        </div>
+      )}
+      {!loading && !error && items.length === 0 && <div className="empty-state">لا توجد عمليات شحن عبر Binance بعد</div>}
+      {!loading && items.length > 0 && (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>المستخدم</th>
+              <th>Order ID</th>
+              <th>المبلغ</th>
+              <th>بالدينار</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((t) => (
+              <tr key={t.id}>
+                <td>
+                  <Link to={`/users/${t.user_id}`}>{t.user_id.slice(0, 8)}…</Link>
+                </td>
+                <td style={{ fontFamily: "monospace", direction: "ltr", textAlign: "start" }}>{t.binance_order_id}</td>
+                <td>{t.amount_usdt ? `${formatMoney(t.amount_usdt)} ${t.currency}` : "—"}</td>
+                <td>{t.amount_lyd ? `${formatMoney(t.amount_lyd)} LYD` : "—"}</td>
+                <td>
+                  <StatusBadge status={t.status} />
+                </td>
+                <td>{new Date(t.created_at).toLocaleString("ar-LY")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

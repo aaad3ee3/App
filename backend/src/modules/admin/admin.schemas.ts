@@ -30,6 +30,11 @@ export const creditTopupManuallySchema = z.object({
   note: z.string().trim().min(1).max(1000),
 });
 
+export const listBinanceTopupsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  page_size: z.coerce.number().int().positive().max(100).default(20),
+});
+
 export const listUsersQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   page_size: z.coerce.number().int().positive().max(100).default(20),

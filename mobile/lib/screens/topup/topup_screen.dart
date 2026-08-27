@@ -5,10 +5,14 @@ import 'package:provider/provider.dart';
 import '../../config/store_config.dart';
 import '../../models/topup_request.dart';
 import '../../services/api_client.dart';
+import '../../services/app_config.dart';
 import '../../services/auth_store.dart';
+import '../../services/binance_topup_service.dart';
 import '../../services/topup_service.dart';
 import '../../theme/app_theme.dart';
 import '../auth/link_phone_screen.dart';
+
+enum _TopupMethod { libyana, binance }
 
 class TopupScreen extends StatefulWidget {
   const TopupScreen({super.key});
@@ -26,6 +30,7 @@ class _TopupScreenState extends State<TopupScreen> {
   bool _loading = true;
   bool _submitting = false;
   String? _error;
+  _TopupMethod _method = _TopupMethod.libyana;
 
   @override
   void initState() {
@@ -120,17 +125,39 @@ class _TopupScreenState extends State<TopupScreen> {
   @override
   Widget build(BuildContext context) {
     final phone = context.watch<AuthStore>().user?.phone;
+    final binanceEnabled = context.watch<AppConfigStore>().config.binancePayEnabled;
+
     return Scaffold(
       appBar: AppBar(title: const Text('شحن الرصيد')),
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: _pending != null
-                    ? _PendingView(topup: _pending!, submitting: _submitting, onCancel: _cancel)
-                    : (phone == null ? _buildLinkPhonePrompt() : _buildForm(phone)),
+        child: Column(
+          children: [
+            if (binanceEnabled)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: SegmentedButton<_TopupMethod>(
+                  segments: const [
+                    ButtonSegment(value: _TopupMethod.libyana, label: Text('ليبيانا'), icon: Icon(Icons.phone_android_rounded)),
+                    ButtonSegment(value: _TopupMethod.binance, label: Text('Binance Pay'), icon: Icon(Icons.attach_money_rounded)),
+                  ],
+                  selected: {_method},
+                  onSelectionChanged: (s) => setState(() => _method = s.first),
+                ),
               ),
+            Expanded(
+              child: _method == _TopupMethod.binance
+                  ? const SingleChildScrollView(padding: EdgeInsets.all(16), child: _BinanceTopupView())
+                  : (_loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: _pending != null
+                              ? _PendingView(topup: _pending!, submitting: _submitting, onCancel: _cancel)
+                              : (phone == null ? _buildLinkPhonePrompt() : _buildForm(phone)),
+                        )),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -385,6 +412,169 @@ class _InstructionStep extends StatelessWidget {
           Expanded(child: Text(text)),
         ],
       ),
+    );
+  }
+}
+
+/// Binance Pay top-up: unlike the Libyana flow there's nothing to poll for — the customer
+/// submits an Order ID and the server verifies + credits synchronously in one call.
+class _BinanceTopupView extends StatefulWidget {
+  const _BinanceTopupView();
+
+  @override
+  State<_BinanceTopupView> createState() => _BinanceTopupViewState();
+}
+
+class _BinanceTopupViewState extends State<_BinanceTopupView> {
+  final _orderIdController = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+  BinanceTopupResult? _result;
+
+  @override
+  void dispose() {
+    _orderIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _copyPayId(String payId) async {
+    await Clipboard.setData(ClipboardData(text: payId));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ المعرّف')));
+  }
+
+  Future<void> _verify() async {
+    final orderId = _orderIdController.text.trim();
+    if (orderId.isEmpty) {
+      setState(() => _error = 'أدخل Order ID');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final service = BinanceTopupService(context.read<AuthStore>().api);
+      final result = await service.verify(orderId);
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _submitting = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _submitting = false;
+      });
+    }
+  }
+
+  void _reset() {
+    _orderIdController.clear();
+    setState(() {
+      _result = null;
+      _error = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_result != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          const Icon(Icons.check_circle_rounded, size: 64, color: Colors.green),
+          const SizedBox(height: 16),
+          Text(
+            'تم شحن ${_result!.amountLyd.toStringAsFixed(2)} د.ل',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'مقابل ${_result!.amountUsdt} ${_result!.currency}',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton(onPressed: _reset, child: const Text('شحن مبلغ آخر')),
+        ],
+      );
+    }
+
+    final payId = context.watch<AppConfigStore>().config.binancePayId ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('حوّل USDT إلى هذا المعرّف (Pay ID)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          payId,
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: () => _copyPayId(payId),
+                      icon: const Icon(Icons.copy_rounded),
+                      tooltip: 'نسخ المعرّف',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'نقبل USDT وUSDC وBUSD وFDUSD فقط.',
+          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _orderIdController,
+          textDirection: TextDirection.ltr,
+          decoration: const InputDecoration(labelText: 'Order ID', hintText: 'انسخه من تطبيق Binance بعد التحويل'),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        ],
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: _submitting ? null : _verify,
+          icon: _submitting
+              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.check_rounded),
+          label: Text(_submitting ? 'جارٍ التحقق…' : 'تحقق واشحن الرصيد'),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'كل Order ID يُستخدم مرة وحدة بس — لا تستخدم نفس الرقم لعمليتين.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }

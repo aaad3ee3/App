@@ -20,6 +20,7 @@ class AppConfig {
     this.minSupportedVersion = 0,
     this.latestVersionName,
     this.updateUrl,
+    this.binancePayId,
   });
 
   final String? supportWhatsapp;
@@ -38,6 +39,12 @@ class AppConfig {
 
   final int giftcardMinutes;
   final int smmHours;
+
+  /// Null hides the Binance Pay top-up option entirely rather than showing one that
+  /// always fails at verify time — mirrors how a missing [googleServerClientId] hides
+  /// the Google button.
+  final String? binancePayId;
+  bool get binancePayEnabled => (binancePayId ?? '').isNotEmpty;
 
   /// The oldest build number (the digits after `+` in pubspec.yaml) still allowed to
   /// run. 0 means the check is off — the server's own default, so a fresh deploy never
@@ -61,6 +68,7 @@ class AppConfig {
     final delivery = json['delivery'] as Map<String, dynamic>?;
     final app = json['app'] as Map<String, dynamic>?;
     final auth = json['auth'] as Map<String, dynamic>?;
+    final payments = json['payments'] as Map<String, dynamic>?;
 
     return AppConfig(
       supportWhatsapp: support?['whatsapp'] as String?,
@@ -73,6 +81,7 @@ class AppConfig {
       minSupportedVersion: (app?['min_supported_version'] as num?)?.toInt() ?? 0,
       latestVersionName: app?['latest_version_name'] as String?,
       updateUrl: app?['update_url'] as String?,
+      binancePayId: payments?['binance_pay_id'] as String?,
     );
   }
 

@@ -7,6 +7,7 @@ import {
   createCouponSchema,
   creditTopupManuallySchema,
   ignoreSmsEventSchema,
+  listBinanceTopupsQuerySchema,
   listOrdersQuerySchema,
   listProductsAdminQuerySchema,
   listSmsEventsQuerySchema,
@@ -67,6 +68,11 @@ export default async function adminRoutes(app: FastifyInstance) {
       return adminService.creditTopupManually(request.user!.id, id, amount, note);
     }
   );
+
+  app.get("/binance-topups", async (request) => {
+    const { page, page_size } = listBinanceTopupsQuerySchema.parse(request.query);
+    return adminService.listBinanceTopups(page, page_size);
+  });
 
   app.get("/users", async (request) => {
     const { page, page_size } = listUsersQuerySchema.parse(request.query);
