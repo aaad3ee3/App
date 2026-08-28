@@ -6,6 +6,7 @@ import * as repo from "./catalog.repository";
 function toProductView(p: ProductRow | repo.ProductWithPopularity) {
   return {
     id: p.id,
+    kind: p.kind,
     name: p.name,
     description: p.description,
     image: p.image,
@@ -14,6 +15,8 @@ function toProductView(p: ProductRow | repo.ProductWithPopularity) {
     price_per_1000: p.price_per_1000,
     min_quantity: p.min_quantity,
     max_quantity: p.max_quantity,
+    // social_topup only — the field labels the customer must fill in at checkout.
+    required_params: p.required_params,
     popular: "popular" in p ? p.popular : false,
   };
 }

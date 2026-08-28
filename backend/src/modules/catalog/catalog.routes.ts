@@ -3,13 +3,13 @@ import { z } from "zod";
 import { keyByUser } from "../../plugins/rate-limit.plugin";
 import * as catalogService from "./catalog.service";
 
-const listCategoriesQuerySchema = z.object({ kind: z.enum(["giftcard", "smm"]).optional() });
+const listCategoriesQuerySchema = z.object({ kind: z.enum(["giftcard", "smm", "social_topup"]).optional() });
 const idParamSchema = z.object({ id: z.string().uuid() });
 
 const searchQuerySchema = z.object({
   // Capped because the query becomes a LIKE pattern: length here is work in the database.
   q: z.string().min(1).max(60),
-  kind: z.enum(["giftcard", "smm"]).optional(),
+  kind: z.enum(["giftcard", "smm", "social_topup"]).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(30),
 });
 

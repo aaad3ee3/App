@@ -9,7 +9,7 @@ interface OrderRow {
   id: string;
   user_id: string;
   product_id: string;
-  kind: "giftcard" | "smm";
+  kind: "giftcard" | "smm" | "social_topup";
   quantity: number;
   target_link: string | null;
   unit_price: string;
@@ -19,6 +19,12 @@ interface OrderRow {
   error_message: string | null;
   created_at: string;
 }
+
+const KIND_LABELS: Record<string, string> = {
+  giftcard: "بطاقة",
+  smm: "خدمة سوشيال",
+  social_topup: "شحن برامج بث",
+};
 
 const STATUSES = ["ambiguous_error", "pending", "processing", "completed", "failed", "refunded"];
 const STATUS_LABELS: Record<string, string> = {
@@ -124,7 +130,7 @@ export function OrdersPage() {
                   <td>
                     <Link to={`/users/${o.user_id}`}>{o.user_id.slice(0, 8)}…</Link>
                   </td>
-                  <td>{o.kind === "giftcard" ? "بطاقة" : "خدمة سوشيال"}</td>
+                  <td>{KIND_LABELS[o.kind]}</td>
                   <td>{o.quantity}</td>
                   <td>{formatMoney(o.total_price)} LYD</td>
                   <td>

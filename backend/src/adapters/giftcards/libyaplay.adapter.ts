@@ -8,9 +8,11 @@ import type {
 import { createLibyaPlayClientFromEnv, type LibyaPlayClient } from "./libyaplay.client";
 
 /**
- * FUTURE PHASE — not wired into any route yet (no catalog/order module exists). The HTTP
- * client and every method below are real and confirmed against Libya Play's actual API
- * docs (categories -> sub-categories -> products -> synchronous pay). See
+ * Wired into orders.service.ts / catalog-sync.service.ts. The HTTP client and every method
+ * below are real and confirmed against Libya Play's actual API docs (categories ->
+ * sub-categories -> products -> synchronous pay, `pro_type=digt`). This deliberately
+ * excludes `pro_type=auto` products (live-app top-ups like Azal Live/imo) — those go
+ * through the separate /social/* flow, see ../social/libyaplay-social.adapter.ts. See
  * giftcard-supplier.interface.ts for the important idempotency caveat on `purchase`.
  */
 export class LibyaPlayAdapter implements GiftCardSupplierAdapter {

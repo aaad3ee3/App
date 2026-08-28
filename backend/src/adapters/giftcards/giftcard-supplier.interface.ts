@@ -1,8 +1,7 @@
 /**
- * FUTURE PHASE — not wired into any route yet (no catalog/order module exists). Matches
- * Libya Play's real `/digital-products/*` catalog shape (confirmed against their docs):
- * a 3-level hierarchy — category -> sub-category -> product — not a flat product list.
- * `listProducts` intentionally takes a subCategoryId; there is no "list everything" endpoint.
+ * Matches Libya Play's real `/digital-products/*` catalog shape (confirmed against their
+ * docs): a 3-level hierarchy — category -> sub-category -> product — not a flat product
+ * list. `listProducts` intentionally takes a subCategoryId; there is no "list everything" endpoint.
  *
  * NOTE: Libya Play's digital-products purchase endpoint has no idempotency-key parameter
  * (unlike their /social/pay, which does). A retried purchase call after a network failure

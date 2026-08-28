@@ -1,5 +1,9 @@
 class StoreProduct {
   final String id;
+  /// 'giftcard' | 'smm' | 'social_topup'. Nullable because some older call sites (search
+  /// results before this field existed) may not carry it — falls back to empty, which
+  /// simply fails the `is*` checks below rather than crashing.
+  final String kind;
   final String name;
   final String? description;
   final String? image;
@@ -9,6 +13,10 @@ class StoreProduct {
   final int? minQuantity;
   final int? maxQuantity;
 
+  /// social_topup only — field labels (Arabic, as Libya Play names them) the customer
+  /// must fill in at checkout, e.g. `["معرف المستخدم"]`.
+  final List<String> requiredParams;
+
   /// True for a top-3 (by completed order count) product within its category — shown to
   /// the customer as a "most ordered" badge. Defaults to false so an older backend
   /// response with no such field simply shows no badge instead of crashing.
@@ -16,6 +24,7 @@ class StoreProduct {
 
   StoreProduct({
     required this.id,
+    this.kind = '',
     required this.name,
     required this.description,
     required this.image,
@@ -24,11 +33,13 @@ class StoreProduct {
     required this.pricePer1000,
     required this.minQuantity,
     required this.maxQuantity,
+    this.requiredParams = const [],
     this.popular = false,
   });
 
   factory StoreProduct.fromJson(Map<String, dynamic> json) => StoreProduct(
         id: json['id'] as String,
+        kind: json['kind'] as String? ?? '',
         name: json['name'] as String,
         description: json['description'] as String?,
         image: json['image'] as String?,
@@ -37,8 +48,11 @@ class StoreProduct {
         pricePer1000: json['price_per_1000'] as bool? ?? false,
         minQuantity: (json['min_quantity'] as num?)?.toInt(),
         maxQuantity: (json['max_quantity'] as num?)?.toInt(),
+        requiredParams: (json['required_params'] as List?)?.cast<String>() ?? const [],
         popular: json['popular'] as bool? ?? false,
       );
+
+  bool get isSocialTopup => kind == 'social_topup';
 
   double get priceValue => double.tryParse(price) ?? 0;
 

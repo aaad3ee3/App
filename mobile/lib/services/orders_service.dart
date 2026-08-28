@@ -9,6 +9,7 @@ class OrdersService {
     required String productId,
     int? quantity,
     String? targetLink,
+    Map<String, String>? socialParams,
     String? couponCode,
   }) async {
     final json = await _api.post(
@@ -17,6 +18,7 @@ class OrdersService {
         'product_id': productId,
         'quantity': ?quantity,
         if (targetLink != null && targetLink.isNotEmpty) 'target_link': targetLink,
+        if (socialParams != null && socialParams.isNotEmpty) 'social_params': socialParams,
         if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
       },
     );

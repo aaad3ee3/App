@@ -1,6 +1,6 @@
 class StoreCategory {
   final String id;
-  final String kind; // 'giftcard' | 'smm'
+  final String kind; // 'giftcard' | 'smm' | 'social_topup'
   final String name;
   final String? image;
 
@@ -26,4 +26,5 @@ class StoreCategory {
       );
 
   bool get isGiftcard => kind == 'giftcard';
+  bool get isSocialTopup => kind == 'social_topup';
 }

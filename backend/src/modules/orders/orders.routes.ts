@@ -8,6 +8,9 @@ const createOrderSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.coerce.number().int().positive().optional(),
   target_link: z.string().trim().min(1).max(2000).optional(),
+  // social_topup only — values keyed by whatever field labels the product declares (e.g.
+  // "معرف المستخدم"). Capped the same as target_link against an oversized payload.
+  social_params: z.record(z.string(), z.string().trim().min(1).max(2000)).optional(),
   coupon_code: z.string().trim().min(1).max(40).optional(),
 });
 
@@ -41,6 +44,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
         productId: input.product_id,
         quantity: input.quantity,
         targetLink: input.target_link,
+        socialParams: input.social_params,
         couponCode: input.coupon_code,
       });
       reply.status(201).send(order);

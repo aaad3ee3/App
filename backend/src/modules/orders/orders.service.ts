@@ -6,6 +6,8 @@ import type { OrderRow, OrderStatus } from "../../db/types";
 import { LibyaPlayAdapter } from "../../adapters/giftcards/libyaplay.adapter";
 import { LibyaPlayApiError } from "../../adapters/giftcards/libyaplay.client";
 import type { GiftCardSupplierAdapter } from "../../adapters/giftcards/giftcard-supplier.interface";
+import { LibyaPlaySocialAdapter } from "../../adapters/social/libyaplay-social.adapter";
+import type { SocialSupplierAdapter } from "../../adapters/social/social-supplier.interface";
 import { PlusAdapter } from "../../adapters/smm/plus.adapter";
 import { PlusApiError } from "../../adapters/smm/plus.client";
 import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interface";
@@ -19,18 +21,25 @@ import * as ordersRepo from "./orders.repository";
 export interface OrderAdapters {
   giftCard: GiftCardSupplierAdapter;
   smm: SmmSupplierAdapter;
+  social: SocialSupplierAdapter;
 }
 
 function defaultAdapters(): OrderAdapters {
-  return { giftCard: new LibyaPlayAdapter(), smm: new PlusAdapter() };
+  return { giftCard: new LibyaPlayAdapter(), smm: new PlusAdapter(), social: new LibyaPlaySocialAdapter() };
 }
 
 export interface CreateOrderInput {
   productId: string;
-  /** Required for smm products; ignored for giftcard (always exactly 1 unit — Libya Play's pay endpoint has no quantity param). */
+  /** Required for smm and social_topup products; ignored for giftcard (always exactly 1
+   *  unit — Libya Play's digt pay endpoint has no quantity param). */
   quantity?: number;
-  /** Required for smm products (the URL/username to deliver to); must be absent for giftcard. */
+  /** Required for smm products (the URL/username to deliver to); must be absent for
+   *  giftcard and social_topup (the latter uses socialParams instead). */
   targetLink?: string;
+  /** Required for social_topup products — the values for whatever fields the product
+   *  declares (product.required_params), keyed by Libya Play's own field labels (e.g.
+   *  "معرف المستخدم"). Must be absent for giftcard and smm. */
+  socialParams?: Record<string, string>;
   /** Optional discount code — re-validated and atomically claimed inside the purchase
    *  transaction, see coupons.service.ts `applyCoupon`. */
   couponCode?: string;
@@ -78,6 +87,7 @@ export async function createOrder(
 
   let quantity: number;
   let targetLink: string | null;
+  let socialParams: Record<string, string> | null = null;
   let unitPrice: number;
 
   if (product.kind === "giftcard") {
@@ -89,6 +99,34 @@ export async function createOrder(
     }
     quantity = 1;
     targetLink = null;
+    unitPrice = Number(product.sell_price);
+  } else if (product.kind === "social_topup") {
+    if (input.targetLink) {
+      throw new HttpError(400, "unexpected_target_link", "This product does not accept a target link");
+    }
+    quantity = input.quantity ?? 0;
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new HttpError(400, "invalid_quantity", "quantity must be a positive integer");
+    }
+    if (product.min_quantity !== null && quantity < product.min_quantity) {
+      throw new HttpError(400, "invalid_quantity", `quantity must be at least ${product.min_quantity}`);
+    }
+    if (product.max_quantity !== null && quantity > product.max_quantity) {
+      throw new HttpError(400, "invalid_quantity", `quantity must be at most ${product.max_quantity}`);
+    }
+    targetLink = null;
+    const requiredParams = product.required_params ?? [];
+    const provided = input.socialParams ?? {};
+    const collected: Record<string, string> = {};
+    for (const key of requiredParams) {
+      const value = provided[key]?.trim();
+      if (!value) {
+        throw new HttpError(400, "missing_param", `"${key}" is required for this product`);
+      }
+      collected[key] = value;
+    }
+    socialParams = collected;
+    // product.sell_price is already a per-unit rate for social_topup (unlike smm's per-1000).
     unitPrice = Number(product.sell_price);
   } else {
     quantity = input.quantity ?? 0;
@@ -132,6 +170,7 @@ export async function createOrder(
         targetLink,
         unitPrice: unitPrice.toFixed(4),
         totalPrice: totalPrice.toFixed(4),
+        socialParams,
       },
       trx
     );
@@ -165,7 +204,13 @@ export async function createOrder(
     await ordersRepo.markProcessing(orderId, debitTx.id, trx);
   });
 
-  await fulfillOrder(orderId, userId, product, { quantity, targetLink, totalPrice, productName: product.name }, adapters);
+  await fulfillOrder(
+    orderId,
+    userId,
+    product,
+    { quantity, targetLink, socialParams, totalPrice, productName: product.name },
+    adapters
+  );
 
   return (await ordersRepo.findById(orderId))!;
 }
@@ -173,8 +218,14 @@ export async function createOrder(
 async function fulfillOrder(
   orderId: string,
   userId: string,
-  product: { kind: "giftcard" | "smm"; supplier_product_ref: string },
-  details: { quantity: number; targetLink: string | null; totalPrice: number; productName: string },
+  product: { kind: "giftcard" | "smm" | "social_topup"; supplier_product_ref: string },
+  details: {
+    quantity: number;
+    targetLink: string | null;
+    socialParams: Record<string, string> | null;
+    totalPrice: number;
+    productName: string;
+  },
   adapters: OrderAdapters
 ): Promise<void> {
   try {
@@ -185,6 +236,16 @@ async function fulfillOrder(
       // never awaited in a way that can fail the order — see notifications.service.ts.
       void notifications.notifyOrderCompleted(userId, details.productName, Boolean(redemption?.cardCode));
       void referralService.maybeRewardReferral(userId, orderId);
+    } else if (product.kind === "social_topup") {
+      const result = await adapters.social.purchase({
+        productId: product.supplier_product_ref,
+        quantity: details.quantity,
+        params: details.socialParams!,
+        orderUuid: orderId,
+      });
+      await ordersRepo.attachSupplierOrderRef(orderId, result.supplierOrderId, result);
+      // Status stays 'processing' — live-app top-ups credit asynchronously on Libya Play's
+      // side, see poll-social-orders.job.ts, which sends the completion/refund notification.
     } else {
       const result = await adapters.smm.addOrder({
         supplierServiceId: product.supplier_product_ref,
@@ -197,9 +258,7 @@ async function fulfillOrder(
     }
   } catch (err) {
     if (err instanceof LibyaPlayApiError || err instanceof PlusApiError) {
-      await refundOrder(orderId, userId, details.totalPrice, `supplier_error: ${err.message}`);
-      await ordersRepo.markFailed(orderId, err.message);
-      void notifications.notifyOrderRefunded(userId, details.totalPrice.toFixed(3));
+      await refundAndFailOrder(orderId, userId, details.totalPrice, `supplier_error: ${err.message}`);
     } else {
       const message = err instanceof Error ? err.message : String(err);
       await ordersRepo.markAmbiguous(orderId, message);
@@ -208,6 +267,17 @@ async function fulfillOrder(
       void notifications.notifyOrderUnderReview(userId);
     }
   }
+}
+
+/**
+ * Refunds and marks failed — used both when a supplier call fails definitively (a
+ * LibyaPlayApiError/PlusApiError response, above) and when an async supplier order later
+ * resolves to a terminal rejection (see poll-social-orders.job.ts).
+ */
+export async function refundAndFailOrder(orderId: string, userId: string, amount: number, note: string): Promise<void> {
+  await refundOrder(orderId, userId, amount, note);
+  await ordersRepo.markFailed(orderId, note);
+  void notifications.notifyOrderRefunded(userId, amount.toFixed(3));
 }
 
 /** Idempotent via the `order:{id}:refund` key — safe to call more than once (e.g. a manual admin retry). */

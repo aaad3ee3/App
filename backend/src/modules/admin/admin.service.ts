@@ -3,6 +3,7 @@ import { SMS_MATCH_STATUS, TOPUP_STATUS, WALLET_TX_REFERENCE_TYPES, WALLET_TX_TY
 import { HttpError } from "../../plugins/error-handler.plugin";
 import type { OrderStatus, SmsMatchStatus, TopupStatus } from "../../db/types";
 import { LibyaPlayAdapter } from "../../adapters/giftcards/libyaplay.adapter";
+import { LibyaPlaySocialAdapter } from "../../adapters/social/libyaplay-social.adapter";
 import { PlusAdapter } from "../../adapters/smm/plus.adapter";
 import * as catalogRepo from "../catalog/catalog.repository";
 import * as catalogSyncService from "../catalog/catalog-sync.service";
@@ -185,11 +186,12 @@ export async function getUserDetail(userId: string) {
 // --- Catalog ---
 
 export async function syncCatalog() {
-  const [libyaPlay, plus] = await Promise.all([
+  const [libyaPlay, libyaPlaySocial, plus] = await Promise.all([
     catalogSyncService.syncLibyaPlay(new LibyaPlayAdapter()),
+    catalogSyncService.syncLibyaPlaySocial(new LibyaPlaySocialAdapter()),
     catalogSyncService.syncPlus(new PlusAdapter()),
   ]);
-  return { libya_play: libyaPlay, plus };
+  return { libya_play: libyaPlay, libya_play_social: libyaPlaySocial, plus };
 }
 
 export async function listCategoriesAdmin() {

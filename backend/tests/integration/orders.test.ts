@@ -6,6 +6,7 @@ import { LibyaPlayApiError } from "../../src/adapters/giftcards/libyaplay.client
 import { PlusApiError } from "../../src/adapters/smm/plus.client";
 import type { GiftCardRedemption, GiftCardSupplierAdapter } from "../../src/adapters/giftcards/giftcard-supplier.interface";
 import type { SmmOrderResult, SmmOrderStatusResult, SmmSupplierAdapter } from "../../src/adapters/smm/smm-supplier.interface";
+import type { SocialOrderResult, SocialSupplierAdapter } from "../../src/adapters/social/social-supplier.interface";
 import { createTestCategory, createTestProduct, createTestUser, creditTestWallet, resetDb } from "../helpers";
 
 // --- Mock adapters — controllable outcomes, no real network calls ---
@@ -45,8 +46,26 @@ function mockSmmAdapter(behavior: "success" | "clean_error" | "network_error"): 
   };
 }
 
+function mockSocialAdapter(behavior: "success" | "clean_error" | "network_error"): SocialSupplierAdapter {
+  return {
+    listCategories: () => Promise.reject(new Error("not used in these tests")),
+    listProducts: () => Promise.reject(new Error("not used in these tests")),
+    purchase: async (): Promise<SocialOrderResult> => {
+      if (behavior === "success") {
+        return { supplierOrderId: "579", status: "wait" };
+      }
+      if (behavior === "clean_error") {
+        throw new LibyaPlayApiError(422, { status: false, data: "invalid params" }, "validation error");
+      }
+      throw new TypeError("fetch failed");
+    },
+    pollStatuses: () => Promise.reject(new Error("not used in these tests")),
+  };
+}
+
 const UNUSED_SMM_ADAPTER = mockSmmAdapter("success");
 const UNUSED_GIFTCARD_ADAPTER = mockGiftCardAdapter("success");
+const UNUSED_SOCIAL_ADAPTER = mockSocialAdapter("success");
 
 beforeEach(async () => {
   await resetDb();
@@ -66,7 +85,7 @@ describe("orders engine — purchase flow", () => {
     const order = await createOrder(
       user.id,
       { productId: product.id },
-      { giftCard: mockGiftCardAdapter("success"), smm: UNUSED_SMM_ADAPTER }
+      { giftCard: mockGiftCardAdapter("success"), smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
     );
 
     expect(order.status).toBe("completed");
@@ -98,7 +117,7 @@ describe("orders engine — purchase flow", () => {
     const order = await createOrder(
       user.id,
       { productId: product.id, quantity: 500, targetLink: "https://instagram.com/example" },
-      { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: mockSmmAdapter("success") }
+      { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: mockSmmAdapter("success"), social: UNUSED_SOCIAL_ADAPTER }
     );
 
     expect(order.status).toBe("processing");
@@ -116,7 +135,7 @@ describe("orders engine — purchase flow", () => {
     const product = await createTestProduct(category.id, { kind: "giftcard", sellPrice: 25 });
 
     await expect(
-      createOrder(user.id, { productId: product.id }, { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER })
+      createOrder(user.id, { productId: product.id }, { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER })
     ).rejects.toMatchObject({ statusCode: 409, code: "insufficient_balance" });
 
     const updatedWallet = await walletRepo.getWalletByUserId(user.id);
@@ -134,7 +153,7 @@ describe("orders engine — purchase flow", () => {
     await db("categories").where({ id: category.id }).update({ enabled: false });
 
     await expect(
-      createOrder(user.id, { productId: product.id }, { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER })
+      createOrder(user.id, { productId: product.id }, { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER })
     ).rejects.toMatchObject({ statusCode: 404, code: "not_found" });
 
     const updatedWallet = await walletRepo.getWalletByUserId(user.id);
@@ -153,7 +172,7 @@ describe("orders engine — purchase flow", () => {
     const order = await createOrder(
       user.id,
       { productId: product.id },
-      { giftCard: mockGiftCardAdapter("clean_error"), smm: UNUSED_SMM_ADAPTER }
+      { giftCard: mockGiftCardAdapter("clean_error"), smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
     );
 
     expect(order.status).toBe("failed");
@@ -175,7 +194,7 @@ describe("orders engine — purchase flow", () => {
     const order = await createOrder(
       user.id,
       { productId: product.id },
-      { giftCard: mockGiftCardAdapter("network_error"), smm: UNUSED_SMM_ADAPTER }
+      { giftCard: mockGiftCardAdapter("network_error"), smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
     );
 
     expect(order.status).toBe("ambiguous_error");
@@ -207,7 +226,7 @@ describe("orders engine — purchase flow", () => {
       createOrder(
         user.id,
         { productId: product.id, quantity: 10, targetLink: "https://instagram.com/example" },
-        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER }
+        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
       )
     ).rejects.toMatchObject({ statusCode: 400, code: "invalid_quantity" });
 
@@ -232,9 +251,92 @@ describe("orders engine — purchase flow", () => {
       createOrder(
         user.id,
         { productId: product.id, quantity: 500 },
-        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER }
+        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
       )
     ).rejects.toMatchObject({ statusCode: 400, code: "target_link_required" });
+  });
+
+  describe("social_topup: live-app top-ups (Libya Play /social/* flow)", () => {
+    async function createSocialProduct() {
+      const category = await createTestCategory({ kind: "social_topup" });
+      return createTestProduct(category.id, {
+        kind: "social_topup",
+        sellPrice: 0.05,
+        pricePer1000: false,
+        minQuantity: 100,
+        maxQuantity: 150000,
+        requiredParams: ["معرف المستخدم"],
+      });
+    }
+
+    it("debits quantity * per-unit price (NOT per-1000) and leaves the order 'processing' with the supplier order ref attached", async () => {
+      const { user, wallet } = await createTestUser();
+      await creditTestWallet(user.id, wallet.id, 100);
+      const product = await createSocialProduct();
+
+      const order = await createOrder(
+        user.id,
+        { productId: product.id, quantity: 1000, socialParams: { "معرف المستخدم": "player_12345" } },
+        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: mockSocialAdapter("success") }
+      );
+
+      expect(order.status).toBe("processing");
+      expect(order.total_price).toBe("50.0000"); // 0.05 * 1000, not /1000
+      expect(order.supplier_order_ref).toBe("579");
+      expect(order.social_params).toEqual({ "معرف المستخدم": "player_12345" });
+
+      const updatedWallet = await walletRepo.getWalletByUserId(user.id);
+      expect(Number(updatedWallet!.balance)).toBe(50);
+    });
+
+    it("rejects an order missing a required param", async () => {
+      const { user, wallet } = await createTestUser();
+      await creditTestWallet(user.id, wallet.id, 100);
+      const product = await createSocialProduct();
+
+      await expect(
+        createOrder(
+          user.id,
+          { productId: product.id, quantity: 1000, socialParams: {} },
+          { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
+        )
+      ).rejects.toMatchObject({ statusCode: 400, code: "missing_param" });
+
+      const orders = await db("orders").where({ user_id: user.id });
+      expect(orders).toHaveLength(0);
+    });
+
+    it("rejects a quantity outside the product's min/max amount range", async () => {
+      const { user, wallet } = await createTestUser();
+      await creditTestWallet(user.id, wallet.id, 100);
+      const product = await createSocialProduct();
+
+      await expect(
+        createOrder(
+          user.id,
+          { productId: product.id, quantity: 10, socialParams: { "معرف المستخدم": "player_12345" } },
+          { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
+        )
+      ).rejects.toMatchObject({ statusCode: 400, code: "invalid_quantity" });
+    });
+
+    it("clean supplier error: refunds the wallet and marks the order 'failed'", async () => {
+      const { user, wallet } = await createTestUser();
+      await creditTestWallet(user.id, wallet.id, 100);
+      const product = await createSocialProduct();
+
+      const order = await createOrder(
+        user.id,
+        { productId: product.id, quantity: 1000, socialParams: { "معرف المستخدم": "player_12345" } },
+        { giftCard: UNUSED_GIFTCARD_ADAPTER, smm: UNUSED_SMM_ADAPTER, social: mockSocialAdapter("clean_error") }
+      );
+
+      expect(order.status).toBe("failed");
+      expect(order.wallet_refund_transaction_id).not.toBeNull();
+
+      const updatedWallet = await walletRepo.getWalletByUserId(user.id);
+      expect(Number(updatedWallet!.balance)).toBe(100); // fully refunded
+    });
   });
 
   describe("admin resolution of ambiguous orders", () => {
@@ -246,7 +348,7 @@ describe("orders engine — purchase flow", () => {
       const order = await createOrder(
         user.id,
         { productId: product.id },
-        { giftCard: mockGiftCardAdapter("network_error"), smm: UNUSED_SMM_ADAPTER }
+        { giftCard: mockGiftCardAdapter("network_error"), smm: UNUSED_SMM_ADAPTER, social: UNUSED_SOCIAL_ADAPTER }
       );
       return { user, order };
     }

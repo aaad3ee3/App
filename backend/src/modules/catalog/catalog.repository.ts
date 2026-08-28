@@ -70,6 +70,8 @@ export interface UpsertProductInput {
   minQuantity: number | null;
   maxQuantity: number | null;
   available: boolean;
+  /** social_topup only — see ProductRow.required_params. */
+  requiredParams?: string[] | null;
 }
 
 /**
@@ -100,6 +102,11 @@ export async function upsertProduct(input: UpsertProductInput): Promise<string> 
     min_quantity: input.minQuantity,
     max_quantity: input.maxQuantity,
     available: input.available,
+    // JSON.stringify'd here rather than handed to knex as a plain array: Postgres accepts
+    // JSON text for a jsonb column directly, but knex/pg would otherwise try to serialize a
+    // JS array as its own ARRAY literal syntax instead. Cast is needed only because
+    // ProductRow types the column as already-parsed (jsonb comes back parsed on read).
+    required_params: (input.requiredParams ? JSON.stringify(input.requiredParams) : null) as unknown as string[] | null,
   };
 
   const rows = await db<ProductRow>("products")
@@ -251,17 +258,27 @@ export async function listAllProductsAdmin(categoryId?: string): Promise<Product
 }
 
 /**
- * Marks unavailable any currently-available product from this supplier whose ref wasn't
- * seen in the sync run that just finished — i.e. the supplier stopped listing it. A
+ * Marks unavailable any currently-available product from this supplier+kind whose ref
+ * wasn't seen in the sync run that just finished — i.e. the supplier stopped listing it. A
  * product is never deleted outright: past orders reference it by id, and `ON DELETE
  * RESTRICT` on orders/wallet_transactions exists precisely so the ledger can't lose that
  * link (the auth module's anonymize-don't-delete pattern applies the same reasoning to
  * users). Unavailable just means it drops out of browsing and can no longer be bought —
  * see createOrder's `available` check.
+ *
+ * Scoped by `kind` as well as `supplier`: Libya Play serves two independent product kinds
+ * (digt giftcards and social_topup live-app top-ups) under the one `libya_play` supplier,
+ * synced by two separate functions (syncLibyaPlay / syncLibyaPlaySocial) that each only see
+ * their own half of the catalog. Without the kind filter, syncing one would wrongly mark
+ * every product of the other stale on every run.
  */
-export function markStaleProductsUnavailable(supplier: Supplier, seenSupplierProductRefs: string[]): Promise<number> {
+export function markStaleProductsUnavailable(
+  supplier: Supplier,
+  kind: ProductKind,
+  seenSupplierProductRefs: string[]
+): Promise<number> {
   return db("products")
-    .where({ supplier, available: true })
+    .where({ supplier, kind, available: true })
     .whereNotIn("supplier_product_ref", seenSupplierProductRefs)
     .update({ available: false, updated_at: new Date() });
 }

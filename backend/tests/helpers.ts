@@ -101,6 +101,7 @@ export async function createTestProduct(
     maxQuantity: number | null;
     available: boolean;
     supplierProductRef: string;
+    requiredParams: string[] | null;
   }> = {}
 ): Promise<ProductRow> {
   const [product] = await db<ProductRow>("products")
@@ -117,6 +118,7 @@ export async function createTestProduct(
       min_quantity: overrides.minQuantity ?? null,
       max_quantity: overrides.maxQuantity ?? null,
       available: overrides.available ?? true,
+      required_params: overrides.requiredParams ? JSON.stringify(overrides.requiredParams) : null,
     })
     .returning("*");
   if (!product) throw new Error("failed to insert test product");

@@ -12,6 +12,7 @@ import '../../widgets/product_tile.dart';
 import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
+import 'social_topup_purchase_screen.dart';
 
 /// How a category's products are ordered. Cheapest-first is the default because that is
 /// the question customers actually ask of a list of top-up amounts.
@@ -118,13 +119,13 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   }
 
   void _openProduct(StoreProduct product) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => widget.category.isGiftcard
-            ? GiftcardPurchaseScreen(product: product, heroTag: 'product-image-${product.id}')
-            : SmmPurchaseScreen(product: product),
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _purchaseScreen(product)));
+  }
+
+  Widget _purchaseScreen(StoreProduct product) {
+    if (widget.category.isGiftcard) return GiftcardPurchaseScreen(product: product, heroTag: 'product-image-${product.id}');
+    if (widget.category.isSocialTopup) return SocialTopupPurchaseScreen(product: product);
+    return SmmPurchaseScreen(product: product);
   }
 
   @override

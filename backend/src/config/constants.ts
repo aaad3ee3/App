@@ -43,6 +43,8 @@ export const USER_STATUS = {
 export const PRODUCT_KIND = {
   GIFTCARD: "giftcard",
   SMM: "smm",
+  /** Libya Play's /social/* flow — live-app top-ups (Azal Live, Party Star, imo, ...). */
+  SOCIAL_TOPUP: "social_topup",
 } as const;
 
 export const SUPPLIER = {

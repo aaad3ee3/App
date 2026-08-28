@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/category.dart';
+import '../../models/product.dart';
 import '../../models/search_result.dart';
 import '../../models/wallet.dart';
 import '../../services/api_client.dart';
@@ -17,7 +18,14 @@ import '../../widgets/tap_scale.dart';
 import 'category_products_screen.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
+import 'social_topup_purchase_screen.dart';
 import '../topup/topup_screen.dart';
+
+IconData _kindIcon(String kind) => switch (kind) {
+      'giftcard' => Icons.card_giftcard_rounded,
+      'social_topup' => Icons.live_tv_rounded,
+      _ => Icons.trending_up_rounded,
+    };
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -170,12 +178,14 @@ class _StoreScreenState extends State<StoreScreen> {
 
   void _openResult(CatalogSearchResult result) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => result.category.isGiftcard
-            ? GiftcardPurchaseScreen(product: result.product, heroTag: 'product-image-${result.product.id}')
-            : SmmPurchaseScreen(product: result.product),
-      ),
+      MaterialPageRoute(builder: (_) => _purchaseScreenFor(result.category, result.product)),
     );
+  }
+
+  Widget _purchaseScreenFor(StoreCategory category, StoreProduct product) {
+    if (category.isGiftcard) return GiftcardPurchaseScreen(product: product, heroTag: 'product-image-${product.id}');
+    if (category.isSocialTopup) return SocialTopupPurchaseScreen(product: product);
+    return SmmPurchaseScreen(product: product);
   }
 
   @override
@@ -210,6 +220,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 segments: const [
                   ButtonSegment(value: 'giftcard', label: Text('بطاقات الألعاب'), icon: Icon(Icons.videogame_asset_outlined)),
                   ButtonSegment(value: 'smm', label: Text('الرشق'), icon: Icon(Icons.trending_up_rounded)),
+                  ButtonSegment(value: 'social_topup', label: Text('شحن بث'), icon: Icon(Icons.live_tv_rounded)),
                 ],
                 selected: {_kind},
                 onSelectionChanged: (s) => _switchKind(s.first),
@@ -312,7 +323,7 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     if (_categories.isEmpty) {
       return _CenteredMessage(
-        icon: _kind == 'giftcard' ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
+        icon: _kindIcon(_kind),
         title: 'لا توجد فئات متاحة حالياً',
         subtitle: 'راجعنا قريباً — نضيف خدمات جديدة باستمرار',
       );
@@ -417,17 +428,23 @@ class _PromoBannerState extends State<_PromoBanner> {
   Timer? _timer;
   int _page = 0;
 
-  List<_PromoSlide> get _slides => widget.kind == 'giftcard'
-      ? const [
-          _PromoSlide(title: 'شحن فوري لأشهر الألعاب', subtitle: 'أسعار بالدينار الليبي، يوصلك خلال دقائق', icon: Icons.card_giftcard_rounded),
-          _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.card_giftcard_rounded),
-          _PromoSlide(title: 'محفظتك دايم جاهزة', subtitle: 'اشحن رصيدك مرة واشتري بضغطة وحدة في أي وقت', icon: Icons.card_giftcard_rounded),
-        ]
-      : const [
-          _PromoSlide(title: 'الرشق — متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
-          _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.rocket_launch_rounded),
-          _PromoSlide(title: 'تنفيذ آمن وسريع', subtitle: 'خدماتنا موثوقة وأسعارها بالدينار الليبي', icon: Icons.rocket_launch_rounded),
-        ];
+  List<_PromoSlide> get _slides => switch (widget.kind) {
+        'giftcard' => const [
+            _PromoSlide(title: 'شحن فوري لأشهر الألعاب', subtitle: 'أسعار بالدينار الليبي، يوصلك خلال دقائق', icon: Icons.card_giftcard_rounded),
+            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.card_giftcard_rounded),
+            _PromoSlide(title: 'محفظتك دايم جاهزة', subtitle: 'اشحن رصيدك مرة واشتري بضغطة وحدة في أي وقت', icon: Icons.card_giftcard_rounded),
+          ],
+        'social_topup' => const [
+            _PromoSlide(title: 'شحن برامج البث المباشر', subtitle: 'أزال لايف، بارتي ستار، imo وغيرها — شحن مباشر لحسابك', icon: Icons.live_tv_rounded),
+            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.live_tv_rounded),
+            _PromoSlide(title: 'شحن آمن وموثوق', subtitle: 'يبدأ التنفيذ تلقائياً بعد التأكيد', icon: Icons.live_tv_rounded),
+          ],
+        _ => const [
+            _PromoSlide(title: 'الرشق — متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
+            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.rocket_launch_rounded),
+            _PromoSlide(title: 'تنفيذ آمن وسريع', subtitle: 'خدماتنا موثوقة وأسعارها بالدينار الليبي', icon: Icons.rocket_launch_rounded),
+          ],
+      };
 
   @override
   void initState() {
@@ -446,9 +463,13 @@ class _PromoBannerState extends State<_PromoBanner> {
     super.dispose();
   }
 
+  static const _bannerGradients = {
+    'giftcard': [AppColors.navy, AppColors.navyLight],
+    'social_topup': [AppColors.info, Color(0xFF6B8FC7)],
+  };
+
   @override
   Widget build(BuildContext context) {
-    final isGiftcard = widget.kind == 'giftcard';
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
       decoration: BoxDecoration(
@@ -456,9 +477,7 @@ class _PromoBannerState extends State<_PromoBanner> {
         gradient: LinearGradient(
           begin: Alignment.centerRight,
           end: Alignment.centerLeft,
-          colors: isGiftcard
-              ? [AppColors.navy, AppColors.navyLight]
-              : [AppColors.goldDark, AppColors.gold],
+          colors: _bannerGradients[widget.kind] ?? [AppColors.goldDark, AppColors.gold],
         ),
         boxShadow: AppTheme.cardShadow,
       ),
@@ -682,7 +701,7 @@ class _CategoryCard extends StatelessWidget {
 
   Widget _fallbackIcon(BuildContext context) => Center(
         child: Icon(
-          category.isGiftcard ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
+          _kindIcon(category.kind),
           size: 32,
           color: AppColors.gold.withValues(alpha: 0.6),
         ),

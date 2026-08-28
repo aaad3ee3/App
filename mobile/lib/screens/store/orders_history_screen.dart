@@ -14,6 +14,13 @@ import '../../utils/money.dart';
 import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
+import 'social_topup_purchase_screen.dart';
+
+IconData _orderKindIcon(String kind) => switch (kind) {
+      'giftcard' => Icons.card_giftcard_rounded,
+      'social_topup' => Icons.live_tv_rounded,
+      _ => Icons.trending_up_rounded,
+    };
 
 class OrdersHistoryScreen extends StatefulWidget {
   const OrdersHistoryScreen({super.key, this.embedded = false});
@@ -185,9 +192,11 @@ Future<void> _reorder(BuildContext context, StoreOrder order) async {
     Navigator.of(context).pop(); // close the loading dialog
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => order.kind == 'giftcard'
-            ? GiftcardPurchaseScreen(product: product)
-            : SmmPurchaseScreen(product: product),
+        builder: (_) => switch (order.kind) {
+          'giftcard' => GiftcardPurchaseScreen(product: product),
+          'social_topup' => SocialTopupPurchaseScreen(product: product),
+          _ => SmmPurchaseScreen(product: product),
+        },
       ),
     );
   } on ApiException catch (e) {
@@ -217,7 +226,7 @@ class _OrderTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                order.kind == 'giftcard' ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
+                _orderKindIcon(order.kind),
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 12),

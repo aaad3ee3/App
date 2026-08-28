@@ -2,6 +2,7 @@ import { env } from "../../config/env";
 import { PRODUCT_KIND, SUPPLIER } from "../../config/constants";
 import type { GiftCardSupplierAdapter } from "../../adapters/giftcards/giftcard-supplier.interface";
 import type { SmmSupplierAdapter } from "../../adapters/smm/smm-supplier.interface";
+import type { SocialSupplierAdapter } from "../../adapters/social/social-supplier.interface";
 import { categorizePlusService } from "./plus-categorization";
 import { matchBrandIcon } from "./brand-icons";
 import * as catalogRepo from "./catalog.repository";
@@ -80,7 +81,59 @@ export async function syncLibyaPlay(adapter: GiftCardSupplierAdapter): Promise<S
     }
   }
 
-  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.LIBYA_PLAY, seenRefs);
+  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.LIBYA_PLAY, PRODUCT_KIND.GIFTCARD, seenRefs);
+  return { categories: categoryCount, products: productCount, removed };
+}
+
+/**
+ * Walks Libya Play's /social/* flow — live-app top-ups (Azal Live, Party Star, imo, ...).
+ * Flat categories (no sub-category level, unlike the digt hierarchy above): each category
+ * is one platform and today's catalog never lists more than a handful of products in it.
+ * `pricePer1000` is always false here — `product.price` is already a per-unit rate, not a
+ * per-1000 rate like Plus's SMM services.
+ */
+export async function syncLibyaPlaySocial(adapter: SocialSupplierAdapter): Promise<SyncResult> {
+  let categoryCount = 0;
+  let productCount = 0;
+  const seenRefs: string[] = [];
+
+  const categories = await adapter.listCategories();
+  for (const category of categories) {
+    const categoryId = await catalogRepo.upsertCategory({
+      kind: PRODUCT_KIND.SOCIAL_TOPUP,
+      supplier: SUPPLIER.LIBYA_PLAY,
+      supplierCategoryRef: category.id,
+      name: category.name,
+      image: category.image || matchBrandIcon(category.name) || null,
+    });
+    categoryCount += 1;
+
+    const products = await adapter.listProducts(category.id);
+    for (const product of products) {
+      await catalogRepo.upsertProduct({
+        categoryId,
+        kind: PRODUCT_KIND.SOCIAL_TOPUP,
+        supplier: SUPPLIER.LIBYA_PLAY,
+        supplierProductRef: product.id,
+        supplierSubCategoryRef: null,
+        name: product.name,
+        description: null,
+        image: product.image || category.image || null,
+        costPrice: product.price,
+        sellPrice: applyMarkup(product.price),
+        currency: "LYD",
+        pricePer1000: false,
+        minQuantity: product.minQuantity,
+        maxQuantity: product.maxQuantity,
+        available: product.available,
+        requiredParams: product.params,
+      });
+      productCount += 1;
+      seenRefs.push(product.id);
+    }
+  }
+
+  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.LIBYA_PLAY, PRODUCT_KIND.SOCIAL_TOPUP, seenRefs);
   return { categories: categoryCount, products: productCount, removed };
 }
 
@@ -139,6 +192,6 @@ export async function syncPlus(adapter: SmmSupplierAdapter): Promise<SyncResult>
     seenRefs.push(service.supplierServiceId);
   }
 
-  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.PLUS, seenRefs);
+  const removed = await catalogRepo.markStaleProductsUnavailable(SUPPLIER.PLUS, PRODUCT_KIND.SMM, seenRefs);
   return { categories: categoryIdByKey.size, products: productCount, removed };
 }

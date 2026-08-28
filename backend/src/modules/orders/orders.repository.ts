@@ -6,11 +6,12 @@ export interface InsertPendingOrderInput {
   id: string;
   userId: string;
   productId: string;
-  kind: "giftcard" | "smm";
+  kind: "giftcard" | "smm" | "social_topup";
   quantity: number;
   targetLink: string | null;
   unitPrice: string;
   totalPrice: string;
+  socialParams?: Record<string, string> | null;
 }
 
 export async function insertPendingOrder(input: InsertPendingOrderInput, trx: Knex.Transaction): Promise<OrderRow> {
@@ -25,6 +26,8 @@ export async function insertPendingOrder(input: InsertPendingOrderInput, trx: Kn
       unit_price: input.unitPrice,
       total_price: input.totalPrice,
       status: "pending",
+      // See the analogous comment on products.required_params in catalog.repository.ts.
+      social_params: (input.socialParams ? JSON.stringify(input.socialParams) : null) as unknown as Record<string, string> | null,
     })
     .returning("*");
   if (!row) throw new Error("Failed to insert order");
@@ -102,4 +105,8 @@ export async function listByStatus(
 
 export function listProcessingSmmOrders(): Promise<OrderRow[]> {
   return db<OrderRow>("orders").where({ status: "processing", kind: "smm" }).whereNotNull("supplier_order_ref");
+}
+
+export function listProcessingSocialOrders(): Promise<OrderRow[]> {
+  return db<OrderRow>("orders").where({ status: "processing", kind: "social_topup" }).whereNotNull("supplier_order_ref");
 }

@@ -110,7 +110,7 @@ export interface AdminActionRow {
   created_at: Date;
 }
 
-export type ProductKind = "giftcard" | "smm";
+export type ProductKind = "giftcard" | "smm" | "social_topup";
 export type Supplier = "libya_play" | "plus";
 
 export interface CategoryRow {
@@ -143,6 +143,9 @@ export interface ProductRow {
   min_quantity: number | null;
   max_quantity: number | null;
   available: boolean;
+  /** social_topup only — field labels (Arabic, as Libya Play names them) the customer must
+   *  fill in, e.g. `["معرف المستخدم"]`. Null for giftcard/smm. */
+  required_params: string[] | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -164,6 +167,8 @@ export interface OrderRow {
   supplier_order_ref: string | null;
   supplier_response: unknown;
   error_message: string | null;
+  /** social_topup only — the values the customer typed, keyed by required_params' labels. */
+  social_params: Record<string, string> | null;
   created_at: Date;
   updated_at: Date;
 }

@@ -1,6 +1,7 @@
 import { LibyaPlayAdapter } from "../adapters/giftcards/libyaplay.adapter";
+import { LibyaPlaySocialAdapter } from "../adapters/social/libyaplay-social.adapter";
 import { PlusAdapter } from "../adapters/smm/plus.adapter";
-import { syncLibyaPlay, syncPlus } from "../modules/catalog/catalog-sync.service";
+import { syncLibyaPlay, syncLibyaPlaySocial, syncPlus } from "../modules/catalog/catalog-sync.service";
 
 /**
  * Keeps the catalog current without an admin having to remember to press "مزامنة من
@@ -24,6 +25,17 @@ export async function runAutoCatalogSync(): Promise<void> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("[auto-catalog-sync] Libya Play sync failed:", err instanceof Error ? err.message : err);
+  }
+
+  try {
+    const result = await syncLibyaPlaySocial(new LibyaPlaySocialAdapter());
+    // eslint-disable-next-line no-console
+    console.info(
+      `[auto-catalog-sync] Libya Play (social): ${result.categories} categories, ${result.products} products, ${result.removed} removed`
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[auto-catalog-sync] Libya Play (social) sync failed:", err instanceof Error ? err.message : err);
   }
 
   try {

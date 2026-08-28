@@ -5,7 +5,7 @@ import { formatMoney } from "../utils/format";
 
 interface CategoryRow {
   id: string;
-  kind: "giftcard" | "smm";
+  kind: "giftcard" | "smm" | "social_topup";
   supplier: string;
   name: string;
   image: string | null;
@@ -16,7 +16,7 @@ interface CategoryRow {
 interface ProductRow {
   id: string;
   category_id: string;
-  kind: "giftcard" | "smm";
+  kind: "giftcard" | "smm" | "social_topup";
   supplier: string;
   name: string;
   image: string | null;
@@ -29,8 +29,15 @@ interface ProductRow {
   available: boolean;
 }
 
+const KIND_LABELS: Record<string, string> = {
+  giftcard: "بطاقة",
+  smm: "متابعين/خدمة",
+  social_topup: "شحن برامج بث",
+};
+
 interface SyncResult {
   libya_play: { categories: number; products: number; removed: number };
+  libya_play_social: { categories: number; products: number; removed: number };
   plus: { categories: number; products: number; removed: number };
 }
 
@@ -124,6 +131,8 @@ export function CatalogPage() {
         <div className="card" style={{ background: "#eef6f4" }}>
           تمت المزامنة — Libya Play: {syncResult.libya_play.categories} تصنيف / {syncResult.libya_play.products} منتج
           {syncResult.libya_play.removed > 0 && ` (أُخفي ${syncResult.libya_play.removed} توقف عنه المورد)`}
+          &nbsp;|&nbsp; بث Libya Play: {syncResult.libya_play_social.categories} تصنيف / {syncResult.libya_play_social.products} منتج
+          {syncResult.libya_play_social.removed > 0 && ` (أُخفي ${syncResult.libya_play_social.removed} توقف عنه المورد)`}
           &nbsp;|&nbsp; Plus: {syncResult.plus.categories} تصنيف / {syncResult.plus.products} منتج
           {syncResult.plus.removed > 0 && ` (أُخفي ${syncResult.plus.removed} توقف عنه المورد)`}
         </div>
@@ -267,7 +276,7 @@ function CategoryRowView({
         )}
       </td>
       <td>{category.name}</td>
-      <td>{category.kind === "giftcard" ? "بطاقة" : "متابعين/خدمة"}</td>
+      <td>{KIND_LABELS[category.kind]}</td>
       <td>{category.supplier}</td>
       <td>{category.enabled ? "نعم" : "لا"}</td>
       <td>
