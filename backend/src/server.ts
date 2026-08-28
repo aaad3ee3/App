@@ -1,5 +1,6 @@
 import { buildApp } from "./app";
 import { env } from "./config/env";
+import { startAutoCatalogSyncJob } from "./jobs/auto-catalog-sync.job";
 import { startExpireTopupsJob } from "./jobs/expire-topups.job";
 import { startPollSmmOrdersJob } from "./jobs/poll-smm-orders.job";
 import { startPurgeSessionsJob } from "./jobs/purge-sessions.job";
@@ -12,6 +13,7 @@ async function main() {
   const pollSmmJobHandle = startPollSmmOrdersJob(2 * 60_000);
   const purgeSessionsHandle = startPurgeSessionsJob(6 * 60 * 60_000);
   const reengagementHandle = startReengagementPushJob(6 * 60 * 60_000);
+  const autoCatalogSyncHandle = startAutoCatalogSyncJob(6 * 60 * 60_000);
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "shutting down");
@@ -19,6 +21,7 @@ async function main() {
     clearInterval(pollSmmJobHandle);
     clearInterval(purgeSessionsHandle);
     clearInterval(reengagementHandle);
+    clearInterval(autoCatalogSyncHandle);
     await app.close();
     await closeRedis();
     process.exit(0);

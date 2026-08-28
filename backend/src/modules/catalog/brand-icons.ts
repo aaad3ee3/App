@@ -32,6 +32,23 @@ const BRAND_HINTS: BrandHint[] = [
   { keywords: ["هواوي"], slug: "huawei", color: "FF0000" },
   { keywords: ["فالورانت", "فالورنت"], slug: "valorant", color: "FF4655" },
   { keywords: ["ريزر"], slug: "razer", color: "44D62C" },
+  // Batch below confirmed the same way — a real Simple Icons slug looked up against
+  // their published list, not guessed — after the customer complaint that too many
+  // categories showed no logo at all.
+  { keywords: ["جوجل بلاي", "قوقل بلاي"], slug: "googleplay", color: "01875F" },
+  { keywords: ["سبوتيفاي"], slug: "spotify", color: "1DB954" },
+  { keywords: ["إيبك جيمز", "ايبك جيمز", "إبيك جيمز"], slug: "epicgames", color: "313131" },
+  { keywords: ["أوريجن", "اوريجن", "إي ايه سبورتس", "اي ايه سبورتس"], slug: "ea", color: "000000" },
+  { keywords: ["يوبيسوفت", "يوبي سوفت"], slug: "ubisoft", color: "000000" },
+  { keywords: ["كرانشي رول", "كرانش رول"], slug: "crunchyroll", color: "F47521" },
+  { keywords: ["ليج أوف ليجيندز", "ليق اوف ليجيندز", "ريوت بوينتس", "ريوت"], slug: "leagueoflegends", color: "C28F2C" },
+  { keywords: ["باتل نت", "بليزرد"], slug: "battledotnet", color: "148EFF" },
+  { keywords: ["فورتنايت", "فورت نايت"], slug: "fortnite", color: "000000" },
+  { keywords: ["ببجي"], slug: "pubg", color: "F2A900" },
+  { keywords: ["كول أوف ديوتي", "كول اوف ديوتي", "كود موبايل"], slug: "callofduty", color: "000000" },
+  { keywords: ["جينشين امباكت", "جينشن امباكت", "جينشين إمباكت"], slug: "genshinimpact", color: "1F8FCD" },
+  { keywords: ["كونتر سترايك", "كاونتر سترايك", "سي اس جو"], slug: "counterstrike", color: "F2A900" },
+  { keywords: ["أوبر", "اوبر"], slug: "uber", color: "000000" },
 ];
 
 export function matchBrandIcon(categoryName: string): string | null {

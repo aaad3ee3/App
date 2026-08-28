@@ -24,6 +24,12 @@ const PLATFORMS: PlatformDef[] = [
   { key: "whatsapp", label: "واتساب", slug: "whatsapp", color: "25D366", keywords: ["واتساب", "واتس"] },
   { key: "youtube", label: "يوتيوب", slug: "youtube", color: "FF0000", keywords: ["يوتيوب"] },
   { key: "twitter", label: "تويتر (X)", slug: "x", color: "000000", keywords: ["تويتر"] },
+  { key: "discord", label: "ديسكورد", slug: "discord", color: "5865F2", keywords: ["ديسكورد"] },
+  { key: "snapchat", label: "سناب شات", slug: "snapchat", color: "FFFC00", keywords: ["سناب شات", "سناب"] },
+  { key: "pinterest", label: "بينترست", slug: "pinterest", color: "BD081C", keywords: ["بينترست", "بنترست"] },
+  { key: "linkedin", label: "لينكد إن", slug: "linkedin", color: "0A66C2", keywords: ["لينكد ان", "لينكدان", "لينكدين", "لينكد إن"] },
+  { key: "twitch", label: "تويتش", slug: "twitch", color: "9146FF", keywords: ["تويتش"] },
+  { key: "threads", label: "ثريدز", slug: "threads", color: "000000", keywords: ["ثريدز"] },
 ];
 
 export interface PlusCategoryMatch {

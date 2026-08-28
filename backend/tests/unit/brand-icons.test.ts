@@ -8,6 +8,14 @@ describe("matchBrandIcon", () => {
     expect(matchBrandIcon("بينايس USDT")).toBe("https://cdn.simpleicons.org/tether/26A17B");
   });
 
+  it("matches the expanded batch of brands added for the image-coverage pass", () => {
+    expect(matchBrandIcon("بطاقة جوجل بلاي")).toBe("https://cdn.simpleicons.org/googleplay/01875F");
+    expect(matchBrandIcon("اشتراك سبوتيفاي")).toBe("https://cdn.simpleicons.org/spotify/1DB954");
+    expect(matchBrandIcon("شحن ببجي")).toBe("https://cdn.simpleicons.org/pubg/F2A900");
+    expect(matchBrandIcon("فورتنايت")).toBe("https://cdn.simpleicons.org/fortnite/000000");
+    expect(matchBrandIcon("ريوت بوينتس")).toBe("https://cdn.simpleicons.org/leagueoflegends/C28F2C");
+  });
+
   it("returns null for unrecognized or regional names rather than guessing", () => {
     expect(matchBrandIcon("مملكة الصحراء")).toBeNull();
     expect(matchBrandIcon("بطاقات الألعاب")).toBeNull();

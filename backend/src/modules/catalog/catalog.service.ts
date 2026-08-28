@@ -20,13 +20,19 @@ function toProductView(p: ProductRow | repo.ProductWithPopularity) {
 
 export async function listCategories(kind?: ProductKind) {
   const rows = await repo.listEnabledCategories(kind);
-  return rows.map((r) => ({
-    id: r.id,
-    kind: r.kind,
-    name: r.name,
-    image: r.image,
-    product_count: r.product_count,
-  }));
+  // A category with nothing to sell is a dead end for a customer who taps into it — it
+  // reads as a broken shelf, not an empty one. Hidden here rather than at the repository
+  // level, which still counts every available product for the admin dashboard's own
+  // listing (see admin.service.ts listCategoriesAdmin -> listAllCategoriesAdmin).
+  return rows
+    .filter((r) => r.product_count > 0)
+    .map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      name: r.name,
+      image: r.image,
+      product_count: r.product_count,
+    }));
 }
 
 /** Used by the mobile app's "order again" button — fetches a single product by id,

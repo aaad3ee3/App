@@ -14,9 +14,10 @@ class _Slide {
 
 /// Shown once, on the very first launch, before the customer is asked to sign up.
 ///
-/// The order is deliberate: what the store sells comes first, and "you need an account"
-/// comes last. Asking someone to create an account before they know what the app is for
-/// is the fastest way to lose them on the first screen.
+/// The order is deliberate: the primary business (gift cards, game top-ups, funding the
+/// wallet) leads, and الرشق — the social-growth services, a secondary line — comes last
+/// rather than competing for the second slide's attention. "You need an account" was
+/// always last and stays last.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -40,14 +41,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: 'شدات ببجي، جواهر فري فاير، وشحن أشهر الألعاب — يوصلك الكود خلال دقائق.',
     ),
     _Slide(
-      icon: Icons.trending_up_rounded,
-      title: 'زيادة متابعين',
-      body: 'متابعين وإعجابات ومشاهدات لكل المنصات، تطلبها من التطبيق مباشرة.',
-    ),
-    _Slide(
       icon: Icons.account_balance_wallet_rounded,
       title: 'اشحن بليبيانا',
       body: 'حوّل رصيد ليبيانا لرقم المتجر، وينضاف لمحفظتك تلقائياً. بعدها تشتري بضغطة.',
+    ),
+    _Slide(
+      icon: Icons.trending_up_rounded,
+      title: 'الرشق',
+      body: 'متابعين وإعجابات ومشاهدات لكل المنصات، تطلبها من التطبيق مباشرة.',
     ),
   ];
 

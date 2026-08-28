@@ -180,7 +180,7 @@ class _StoreScreenState extends State<StoreScreen> {
           child: SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'giftcard', label: Text('بطاقات الألعاب'), icon: Icon(Icons.videogame_asset_outlined)),
-              ButtonSegment(value: 'smm', label: Text('زيادة متابعين'), icon: Icon(Icons.trending_up_rounded)),
+              ButtonSegment(value: 'smm', label: Text('الرشق'), icon: Icon(Icons.trending_up_rounded)),
             ],
             selected: {_kind},
             onSelectionChanged: (s) => _switchKind(s.first),
@@ -367,7 +367,7 @@ class _PromoBannerState extends State<_PromoBanner> {
           _PromoSlide(title: 'محفظتك دايم جاهزة', subtitle: 'اشحن رصيدك مرة واشتري بضغطة وحدة في أي وقت', icon: Icons.card_giftcard_rounded),
         ]
       : const [
-          _PromoSlide(title: 'زيادة متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
+          _PromoSlide(title: 'الرشق — متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
           _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.rocket_launch_rounded),
           _PromoSlide(title: 'تنفيذ آمن وسريع', subtitle: 'خدماتنا موثوقة وأسعارها بالدينار الليبي', icon: Icons.rocket_launch_rounded),
         ];
