@@ -5,9 +5,11 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/category.dart';
 import '../../models/search_result.dart';
+import '../../models/wallet.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
+import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/product_tile.dart';
 import '../../widgets/shimmer_box.dart';
@@ -15,6 +17,7 @@ import '../../widgets/tap_scale.dart';
 import 'category_products_screen.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
+import '../topup/topup_screen.dart';
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -49,11 +52,35 @@ class _StoreScreenState extends State<StoreScreen> {
   /// the results of the later "ببجي" the customer has already finished typing.
   int _searchSeq = 0;
 
+  WalletBalance? _walletBalance;
+
   @override
   void initState() {
     super.initState();
     _catalogService = CatalogService(context.read<AuthStore>().api);
     _load();
+    _loadWalletBalance();
+  }
+
+  /// Best-effort: shown as a small floating chip while browsing so the customer never has
+  /// to leave the store to check what they can afford — the same "balance always visible"
+  /// pattern Libya Play keeps on screen. Silently absent for guests (no wallet) or on any
+  /// fetch failure, since it's a convenience overlay, not the source of truth for a
+  /// purchase (giftcard/smm_purchase_screen fetch their own balance for that).
+  Future<void> _loadWalletBalance() async {
+    final auth = context.read<AuthStore>();
+    if (auth.isGuest) return;
+    try {
+      final balance = await WalletService(auth.api).getBalance();
+      if (mounted) setState(() => _walletBalance = balance);
+    } on ApiException {
+      // Stays null — the chip just doesn't show.
+    }
+  }
+
+  Future<void> _goToTopup() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TopupScreen()));
+    _loadWalletBalance();
   }
 
   @override
@@ -153,47 +180,75 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: TextField(
-            controller: _searchController,
-            onChanged: _onQueryChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'ابحث عن بطاقة أو خدمة…',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              suffixIcon: _query.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      tooltip: 'مسح',
-                      onPressed: _clearSearch,
-                    ),
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onQueryChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'ابحث عن بطاقة أو خدمة…',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          tooltip: 'مسح',
+                          onPressed: _clearSearch,
+                        ),
+                ),
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'giftcard', label: Text('بطاقات الألعاب'), icon: Icon(Icons.videogame_asset_outlined)),
+                  ButtonSegment(value: 'smm', label: Text('الرشق'), icon: Icon(Icons.trending_up_rounded)),
+                ],
+                selected: {_kind},
+                onSelectionChanged: (s) => _switchKind(s.first),
+              ),
+            ),
+            // Only shown on the browse view — a banner above a search results list reads as
+            // noise between the customer and the thing they're actively looking for.
+            if (!_isSearching)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _PromoBanner(kind: _kind),
+              ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey(_isSearching ? 'search' : 'categories-$_kind'),
+                  child: _isSearching ? _buildSearchResults() : _buildCategories(),
+                ),
+              ),
+            ),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'giftcard', label: Text('بطاقات الألعاب'), icon: Icon(Icons.videogame_asset_outlined)),
-              ButtonSegment(value: 'smm', label: Text('الرشق'), icon: Icon(Icons.trending_up_rounded)),
-            ],
-            selected: {_kind},
-            onSelectionChanged: (s) => _switchKind(s.first),
+        if (_walletBalance != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 14,
+            child: _FloatingBalanceChip(balance: _walletBalance!, onTopUp: _goToTopup),
           ),
-        ),
-        // Only shown on the browse view — a banner above a search results list reads as
-        // noise between the customer and the thing they're actively looking for.
-        if (!_isSearching)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _PromoBanner(kind: _kind),
-          ),
-        Expanded(child: _isSearching ? _buildSearchResults() : _buildCategories()),
       ],
     );
   }
@@ -222,7 +277,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
     return AnimationLimiter(
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 84),
         itemCount: _results.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
@@ -267,18 +322,20 @@ class _StoreScreenState extends State<StoreScreen> {
       onRefresh: _load,
       child: AnimationLimiter(
         child: GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 84),
+          // Three columns, denser than before — more of the catalog visible at a glance
+          // without scrolling, the same density a competitor's storefront grid uses.
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.95,
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.72,
           ),
           itemCount: _categories.length,
           itemBuilder: (context, index) => AnimationConfiguration.staggeredGrid(
             position: index,
             duration: const Duration(milliseconds: 380),
-            columnCount: 2,
+            columnCount: 3,
             child: SlideAnimation(
               verticalOffset: 30,
               curve: Curves.easeOutCubic,
@@ -477,6 +534,57 @@ class _PromoBannerState extends State<_PromoBanner> {
   }
 }
 
+/// Keeps the wallet balance on screen while browsing, with one tap straight to top-up —
+/// the customer never has to leave the store just to check what they can afford, or to
+/// go find the wallet tab when they can't.
+class _FloatingBalanceChip extends StatelessWidget {
+  const _FloatingBalanceChip({required this.balance, required this.onTopUp});
+
+  final WalletBalance balance;
+  final VoidCallback onTopUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.navy,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(color: AppColors.navy.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'رصيدك: ${balance.amount.toStringAsFixed(2)} ${balance.currency}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
+            ),
+          ),
+          TapScale(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onTopUp,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({required this.category});
 
@@ -535,8 +643,11 @@ class _CategoryCard extends StatelessWidget {
                     : _fallbackIcon(context),
               ),
             ),
+            // A thin accent line between image and label — the small seam a dense grid of
+            // otherwise-plain rectangles needs to read as designed rather than default.
+            Container(height: 2.5, color: AppColors.gold.withValues(alpha: 0.55)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 11),
+              padding: const EdgeInsets.fromLTRB(6, 7, 6, 8),
               child: Column(
                 children: [
                   Text(
@@ -544,17 +655,17 @@ class _CategoryCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                   // Tells the customer there is something behind the tile before they
                   // spend a tap finding out. Hidden at zero rather than showing "0 منتج",
                   // which advertises an empty shelf.
                   if (category.productCount > 0) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       '${category.productCount} منتج',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 10,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -572,7 +683,7 @@ class _CategoryCard extends StatelessWidget {
   Widget _fallbackIcon(BuildContext context) => Center(
         child: Icon(
           category.isGiftcard ? Icons.card_giftcard_rounded : Icons.trending_up_rounded,
-          size: 40,
+          size: 32,
           color: AppColors.gold.withValues(alpha: 0.6),
         ),
       );
