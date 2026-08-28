@@ -16,6 +16,14 @@ describe("matchBrandIcon", () => {
     expect(matchBrandIcon("ريوت بوينتس")).toBe("https://cdn.simpleicons.org/leagueoflegends/C28F2C");
   });
 
+  it("matches the digital-goods/subscription batch added after the blank-icons complaint", () => {
+    expect(matchBrandIcon("اشتراك تيك توك")).toBe("https://cdn.simpleicons.org/tiktok/000000");
+    expect(matchBrandIcon("نيترو ديسكورد")).toBe("https://cdn.simpleicons.org/discord/5865F2");
+    expect(matchBrandIcon("اشتراك نورد في بي ان")).toBe("https://cdn.simpleicons.org/nordvpn/4687FF");
+    expect(matchBrandIcon("كانفا برو")).toBe("https://cdn.simpleicons.org/canva/00C4CC");
+    expect(matchBrandIcon("اشتراك يوديمي")).toBe("https://cdn.simpleicons.org/udemy/A435F0");
+  });
+
   it("returns null for unrecognized or regional names rather than guessing", () => {
     expect(matchBrandIcon("مملكة الصحراء")).toBeNull();
     expect(matchBrandIcon("بطاقات الألعاب")).toBeNull();

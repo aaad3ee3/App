@@ -49,6 +49,28 @@ const BRAND_HINTS: BrandHint[] = [
   { keywords: ["جينشين امباكت", "جينشن امباكت", "جينشين إمباكت"], slug: "genshinimpact", color: "1F8FCD" },
   { keywords: ["كونتر سترايك", "كاونتر سترايك", "سي اس جو"], slug: "counterstrike", color: "F2A900" },
   { keywords: ["أوبر", "اوبر"], slug: "uber", color: "000000" },
+  // Second batch — same "real Simple Icons slug, checked against their published list"
+  // rule, added after a customer complaint that most category tiles still show no logo
+  // (digital-goods/subscription categories weren't covered by the first batch at all).
+  { keywords: ["تيك توك", "تيكتوك"], slug: "tiktok", color: "000000" },
+  { keywords: ["سناب شات", "سناب"], slug: "snapchat", color: "FFFC00" },
+  { keywords: ["يوتيوب"], slug: "youtube", color: "FF0000" },
+  { keywords: ["ديسكورد", "دسكورد"], slug: "discord", color: "5865F2" },
+  { keywords: ["تويتش"], slug: "twitch", color: "9146FF" },
+  { keywords: ["أبل ميوزيك", "ابل ميوزيك", "آبل ميوزيك"], slug: "applemusic", color: "FA243C" },
+  { keywords: ["أتش بي أو ماكس", "اتش بي او ماكس", "HBO Max", "ماكس"], slug: "hbomax", color: "002BE7" },
+  { keywords: ["نورد في بي ان", "نورد في بي إن", "NordVPN"], slug: "nordvpn", color: "4687FF" },
+  { keywords: ["إكسبرس في بي إن", "اكسبرس في بي ان", "ExpressVPN"], slug: "expressvpn", color: "DA3940" },
+  { keywords: ["سيرفشارك", "سيرف شارك"], slug: "surfshark", color: "1EBFBF" },
+  { keywords: ["نوشن", "Notion"], slug: "notion", color: "000000" },
+  { keywords: ["كانفا"], slug: "canva", color: "00C4CC" },
+  { keywords: ["أدوبي", "ادوبي"], slug: "adobe", color: "FF0000" },
+  { keywords: ["تندر"], slug: "tinder", color: "FE3C72" },
+  { keywords: ["دولينجو", "دوولينجو"], slug: "duolingo", color: "58CC02" },
+  { keywords: ["كورسيرا"], slug: "coursera", color: "0056D2" },
+  { keywords: ["يوديمي"], slug: "udemy", color: "A435F0" },
+  { keywords: ["جرامرلي"], slug: "grammarly", color: "15C39A" },
+  { keywords: ["كاب كت", "كابكت"], slug: "capcut", color: "000000" },
 ];
 
 export function matchBrandIcon(categoryName: string): string | null {
