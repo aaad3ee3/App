@@ -31,6 +31,11 @@ class _TopupScreenState extends State<TopupScreen> {
   bool _submitting = false;
   String? _error;
   _TopupMethod _method = _TopupMethod.libyana;
+  // Mirrors _BinanceTopupView's own _result != null — lifted up only so the AppBar's
+  // Cancel action (below) knows when to hide itself. Reset on every tab switch since
+  // _BinanceTopupView is fully remounted (and its _result cleared) each time the ternary
+  // in build() swaps it back in.
+  bool _binanceHasResult = false;
 
   @override
   void initState() {
@@ -128,7 +133,19 @@ class _TopupScreenState extends State<TopupScreen> {
     final binanceEnabled = context.watch<AppConfigStore>().config.binancePayEnabled;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('شحن الرصيد')),
+      appBar: AppBar(
+        title: const Text('شحن الرصيد'),
+        // A clear, explicit way out while a Binance transfer is in progress — not a
+        // buried "back" link at the bottom, and gone once the top-up has actually
+        // completed (nothing left to cancel at that point).
+        actions: [
+          if (binanceEnabled && _method == _TopupMethod.binance && !_binanceHasResult)
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('إلغاء'),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -141,12 +158,18 @@ class _TopupScreenState extends State<TopupScreen> {
                     ButtonSegment(value: _TopupMethod.binance, label: Text('Binance Pay'), icon: Icon(Icons.attach_money_rounded)),
                   ],
                   selected: {_method},
-                  onSelectionChanged: (s) => setState(() => _method = s.first),
+                  onSelectionChanged: (s) => setState(() {
+                    _method = s.first;
+                    _binanceHasResult = false;
+                  }),
                 ),
               ),
             Expanded(
               child: _method == _TopupMethod.binance
-                  ? const SingleChildScrollView(padding: EdgeInsets.all(16), child: _BinanceTopupView())
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: _BinanceTopupView(onResultChanged: (has) => setState(() => _binanceHasResult = has)),
+                    )
                   : (_loading
                       ? const Center(child: CircularProgressIndicator())
                       : SingleChildScrollView(
@@ -419,7 +442,12 @@ class _InstructionStep extends StatelessWidget {
 /// Binance Pay top-up: unlike the Libyana flow there's nothing to poll for — the customer
 /// submits an Order ID and the server verifies + credits synchronously in one call.
 class _BinanceTopupView extends StatefulWidget {
-  const _BinanceTopupView();
+  const _BinanceTopupView({required this.onResultChanged});
+
+  /// Notified with `true` once a transfer is verified and credited, `false` on reset —
+  /// lets the parent TopupScreen hide its AppBar Cancel action once there's nothing left
+  /// to cancel.
+  final ValueChanged<bool> onResultChanged;
 
   @override
   State<_BinanceTopupView> createState() => _BinanceTopupViewState();
@@ -461,6 +489,7 @@ class _BinanceTopupViewState extends State<_BinanceTopupView> {
         _result = result;
         _submitting = false;
       });
+      widget.onResultChanged(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -476,6 +505,7 @@ class _BinanceTopupViewState extends State<_BinanceTopupView> {
       _result = null;
       _error = null;
     });
+    widget.onResultChanged(false);
   }
 
   @override
