@@ -1,0 +1,157 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  ResalaApiError,
+  ResalaAuthError,
+  ResalaClient,
+  ResalaInsufficientCreditError,
+  ResalaPermissionError,
+  ResalaValidationError,
+} from "../../src/adapters/resala/resala.client";
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+const client = new ResalaClient({ baseUrl: "https://dev.resala.ly/api/v1", apiToken: "test-token" });
+
+describe("ResalaClient.sendPin", () => {
+  it("sends the phone in the body and returns the generated pin", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(201, {
+        id: "abc",
+        pin: "123456",
+        code: "218",
+        number: "910001234",
+        content: "your code is 123456",
+        created_at: "2026-01-01T00:00:00Z",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client.sendPin("218910001234", { test: true, serviceName: "سايح" });
+
+    expect(result.pin).toBe("123456");
+    expect(result.nationalNumber).toBe("910001234");
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/pins?test&service_name=");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer test-token");
+    expect(JSON.parse(init.body)).toEqual({ phone: "218910001234" });
+  });
+
+  it("builds a bare ?test flag with no value, per the documented example", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(201, { id: "1", pin: "111111", code: "218", number: "910001234", content: "", created_at: "" })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client.sendPin("218910001234", { test: true });
+
+    const [url] = fetchMock.mock.calls[0]!;
+    expect(String(url).endsWith("/pins?test")).toBe(true);
+  });
+
+  it("never retries on a network failure — a retried POST could send a duplicate SMS", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps 401 to ResalaAuthError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, { message: "Unauthenticated" })));
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaAuthError);
+  });
+
+  it("maps 403 to ResalaPermissionError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(403, { message: "Forbidden" })));
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaPermissionError);
+  });
+
+  it("maps 422 to ResalaValidationError carrying the field errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(422, { errors: { phone: ["The phone field is required."] } }))
+    );
+
+    const err = await client.sendPin("218910001234").catch((e) => e);
+    expect(err).toBeInstanceOf(ResalaValidationError);
+    expect((err as ResalaValidationError).fieldErrors.phone).toEqual(["The phone field is required."]);
+  });
+
+  it("maps a 400 credit message to ResalaInsufficientCreditError", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(400, { message: "Insufficient credit balance" })));
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaInsufficientCreditError);
+  });
+
+  it("does not misclassify an unrelated 400 as a credit error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(400, { message: "Invalid phone format" })));
+
+    const err = await client.sendPin("218910001234").catch((e) => e);
+    expect(err).toBeInstanceOf(ResalaApiError);
+    expect(err).not.toBeInstanceOf(ResalaInsufficientCreditError);
+  });
+});
+
+describe("ResalaClient.sendTemplateMessage", () => {
+  it("posts records to the templated endpoint with the template id in the query string", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { status: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client.sendTemplateMessage("11111111-1111-1111-1111-111111111111", [
+      { phone: "218910001234", $1: "value1" },
+    ]);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("sms_template_id=11111111-1111-1111-1111-111111111111");
+    expect(JSON.parse(init.body)).toEqual({ records: [{ phone: "218910001234", $1: "value1" }] });
+  });
+
+  it("never retries on a network failure", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client.sendTemplateMessage("tid", [{ phone: "218910001234" }])).rejects.toThrow(ResalaApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ResalaClient.getSentView", () => {
+  it("returns the paginated delivery log", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { data: [{ id: "1", status: "delivered" }], meta: { current_page: 1 } })
+      )
+    );
+
+    const result = await client.getSentView({ filters: "source:pin", page: 1, paginate: 10, sorts: "-created_at" });
+    expect(result.data[0]!.status).toBe("delivered");
+  });
+
+  it("retries up to twice on a network failure before giving up", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client.getSentView()).rejects.toThrow(ResalaApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+  });
+
+  it("succeeds after a transient failure followed by a good response", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(jsonResponse(200, { data: [], meta: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client.getSentView();
+    expect(result.data).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

@@ -4,6 +4,7 @@ import { env } from "../../config/env";
 import { sha256Hex } from "../../lib/crypto";
 import { getSmsSender } from "../../lib/sms-sender";
 import { HttpError } from "../../plugins/error-handler.plugin";
+import { createResalaClientFromEnv, isResalaConfigured, ResalaApiError } from "../../adapters/resala/resala.client";
 
 export type OtpPurpose = "register" | "reset" | "link";
 
@@ -43,6 +44,12 @@ function messageFor(purpose: OtpPurpose, code: string): string {
  * Rate limited per phone number rather than per IP: the abuse that matters is flooding
  * one victim's handset with codes, and an attacker rotates IPs far more easily than they
  * rotate someone else's phone number.
+ *
+ * When RESALA_API_TOKEN is configured, Resala both generates and delivers the code in one
+ * call (POST /pins) — there is no local generateCode() in that case, and its returned
+ * `pin` is what gets hashed and stored below, so verification (consumeCode) works
+ * identically either way. Falls back to the existing local-generate + SmsSender path
+ * otherwise, exactly as before.
  */
 export async function issueCode(phone: string, purpose: OtpPurpose): Promise<void> {
   const windowStart = new Date(Date.now() - 60 * 60 * 1000);
@@ -59,7 +66,26 @@ export async function issueCode(phone: string, purpose: OtpPurpose): Promise<voi
     );
   }
 
-  const code = generateCode();
+  const useResala = isResalaConfigured();
+  let code: string;
+  if (useResala) {
+    try {
+      const result = await createResalaClientFromEnv().sendPin(phone, {
+        // Real SMS/credit only in production — every other environment (dev, staging,
+        // the test suite) must never actually send or get charged for one.
+        test: env.NODE_ENV !== "production",
+        serviceName: env.RESALA_SERVICE_NAME,
+      });
+      code = result.pin;
+    } catch (err) {
+      if (err instanceof ResalaApiError) {
+        throw new HttpError(502, "sms_delivery_failed", "تعذر إرسال رمز التحقق، حاول مرة أخرى بعد قليل.");
+      }
+      throw err;
+    }
+  } else {
+    code = generateCode();
+  }
 
   // Invalidate any earlier live code for this phone+purpose, so only the newest works.
   // Without this, an older code stays valid and widens the guessing window.
@@ -75,7 +101,11 @@ export async function issueCode(phone: string, purpose: OtpPurpose): Promise<voi
     expires_at: new Date(Date.now() + env.OTP_TTL_MINUTES * 60_000),
   });
 
-  await getSmsSender().send(phone, messageFor(purpose, code));
+  // Resala already sent the SMS as part of sendPin above — only the local-generate path
+  // still needs a separate send.
+  if (!useResala) {
+    await getSmsSender().send(phone, messageFor(purpose, code));
+  }
 }
 
 /**

@@ -91,6 +91,16 @@ const envSchema = z.object({
   SMS_GATEWAY_TO_FIELD: z.string().default("to"),
   SMS_GATEWAY_TEXT_FIELD: z.string().default("message"),
 
+  // Resala (https://resala.ly) — a real programmable-SMS/OTP provider for Libyan numbers.
+  // Takes priority over SMS_GATEWAY_URL for OTP delivery specifically (see otp.service.ts):
+  // Resala generates the code itself and returns it in the response, so when this is set
+  // we store *its* code rather than generating our own. Optional — with it unset, OTP
+  // delivery falls back to SMS_GATEWAY_URL / the console logger exactly as before.
+  RESALA_API_TOKEN: z.string().optional(),
+  RESALA_BASE_URL: z.string().url().default("https://dev.resala.ly/api/v1"),
+  // Shown inside the SMS text as the sending app/brand (Resala's `service_name` param).
+  RESALA_SERVICE_NAME: z.string().default("سايح"),
+
   // Explicit, opt-in acknowledgement that this production deployment has no real SMS
   // gateway yet and OTP codes will only ever reach the server log — never flip this on
   // for a launch with real, untrusted users. Exists for small-scale trials (a handful of
@@ -257,11 +267,11 @@ function assertProductionSafety(cfg: Env): void {
   // Without a gateway the SMS sender falls back to printing codes to the log. In
   // production that means every verification and password-reset code is readable by
   // anyone with log access, and no customer ever actually receives one.
-  if (!cfg.SMS_GATEWAY_URL && !cfg.ALLOW_SMS_CONSOLE_FALLBACK) {
+  if (!cfg.SMS_GATEWAY_URL && !cfg.RESALA_API_TOKEN && !cfg.ALLOW_SMS_CONSOLE_FALLBACK) {
     problems.push(
-      "SMS_GATEWAY_URL must be set — without it, phone verification and password-reset " +
-        "codes are written to the server log instead of being delivered. If this is a " +
-        "deliberate small-scale trial, set ALLOW_SMS_CONSOLE_FALLBACK=true instead."
+      "RESALA_API_TOKEN or SMS_GATEWAY_URL must be set — without one, phone verification " +
+        "and password-reset codes are written to the server log instead of being delivered. " +
+        "If this is a deliberate small-scale trial, set ALLOW_SMS_CONSOLE_FALLBACK=true instead."
     );
   }
 
