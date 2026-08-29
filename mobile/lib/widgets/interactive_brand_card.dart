@@ -4,34 +4,42 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import '../theme/app_theme.dart';
+import '../utils/home_sections.dart';
+import 'orbit_badge.dart';
+import 'sayeh_logo.dart';
 
-/// A physically-interactive 3D bank-card hero, modeled on Revolut's own pre-auth landing
-/// card: a spring-driven entrance (real spring physics via package:flutter/physics.dart —
-/// mass/stiffness/damping, not a fixed-duration curve, is what makes the settle read as
-/// physical rather than "animated"), a continuous idle sine-wave float, and finger-drag
-/// parallax tilt with a counter-moving specular sheen. Built with Sayeh's own navy/gold
-/// palette rather than Revolut's blue/violet.
+/// A physically-interactive 3D hero card for the login screen — the Sayeh mark itself,
+/// not a fabricated bank card (direct feedback: a Visa-style mockup doesn't correspond to
+/// anything Sayeh actually sells). Orbiting it are the app's three real Home Dashboard
+/// sections (see utils/home_sections.dart) via the same [OrbitBadge] used there and on
+/// onboarding, so a first-time visitor sees the app's real shape before ever logging in.
 ///
-/// Deliberately touch-driven only, not gyro-driven: a device-tilt version needs a sensor
-/// plugin (e.g. sensors_plus) this app does not currently depend on, and this sandbox has
-/// no Flutter SDK to verify a brand-new native dependency actually builds — adding one
-/// blind would be the one part of the original spec not backed by something checkable here.
-class InteractiveBankCard extends StatefulWidget {
-  const InteractiveBankCard({super.key, this.width = 280, this.height = 176});
+/// The physics are unchanged from the reference this was built against (Revolut's own
+/// pre-auth card): a spring-driven entrance (real mass/stiffness/damping via
+/// package:flutter/physics.dart, not a fixed-duration curve), a continuous idle sine-wave
+/// float, and finger-drag parallax tilt with a counter-moving specular sheen — only what
+/// sits on the card face changed.
+///
+/// Touch-driven only, not gyro-driven: a device-tilt version needs a sensor plugin (e.g.
+/// sensors_plus) this app does not depend on, and this sandbox has no Flutter SDK to
+/// verify a brand-new native dependency actually builds.
+class InteractiveBrandCard extends StatefulWidget {
+  const InteractiveBrandCard({super.key, this.width = 260, this.height = 164});
 
   final double width;
   final double height;
 
   @override
-  State<InteractiveBankCard> createState() => _InteractiveBankCardState();
+  State<InteractiveBrandCard> createState() => _InteractiveBrandCardState();
 }
 
-class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerProviderStateMixin {
+class _InteractiveBrandCardState extends State<InteractiveBrandCard> with TickerProviderStateMixin {
   static const _entranceSpring = SpringDescription(mass: 1, stiffness: 120, damping: 14);
   static const _resetSpring = SpringDescription(mass: 1, stiffness: 180, damping: 20);
 
-  // Headroom around the card itself for the fan cards' spread and the idle float's travel.
-  static const _padding = 34.0;
+  // Headroom around the card for the fan cards' spread, the orbiting section badges, and
+  // the idle float's travel.
+  static const _padding = 46.0;
 
   late final AnimationController _entrance;
   late final AnimationController _idle;
@@ -95,9 +103,10 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The fanned backdrop stays fixed — only the top card responds to touch, the
-          // same split the reference keeps between a static fan and one live card.
+          // The fanned backdrop and the orbiting section badges stay fixed — only the
+          // main card responds to touch.
           ..._fanCards(),
+          for (int i = 0; i < kHomeSections.length; i++) _sectionBadge(i),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: _onPanStart,
@@ -134,8 +143,8 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
                   ..rotateZ(_deg2rad(baseRotateZ + idleRotZ))
                   ..scale(scale, scale, scale);
 
-                // The sheen slides opposite the tilt — the cue that sells the surface as a
-                // real reflective card rather than a flat printed image.
+                // The sheen slides opposite the tilt — the cue that sells the surface as
+                // reflective rather than a flat printed image.
                 final sheen = Offset(-_drag.dx - wave * 0.1, -_drag.dy);
 
                 return Opacity(
@@ -152,6 +161,26 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
         ],
       ),
     );
+  }
+
+  Widget _sectionBadge(int index) {
+    final section = kHomeSections[index];
+    final badge = OrbitBadge(
+      seed: index,
+      size: 46,
+      child: Icon(section.icon, color: section.gradient.last, size: 20),
+    );
+
+    // Pixel offsets (not fractional Alignment) so each badge sits precisely just past the
+    // card's own corner, inside the box's fixed padding headroom — one per corner.
+    switch (index % 3) {
+      case 0:
+        return Positioned(top: 6, right: 18, child: badge);
+      case 1:
+        return Positioned(bottom: 12, left: 14, child: badge);
+      default:
+        return Positioned(top: 34, left: 6, child: badge);
+    }
   }
 
   List<Widget> _fanCards() {
@@ -190,7 +219,7 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
             end: Alignment.bottomRight,
             colors: [AppColors.navyDark, AppColors.navy, AppColors.goldDark],
           ),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 14))],
         ),
         clipBehavior: Clip.antiAlias,
@@ -208,7 +237,7 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
                       stops: const [0.32, 0.5, 0.68],
                       colors: [
                         Colors.white.withValues(alpha: 0),
-                        Colors.white.withValues(alpha: 0.22),
+                        Colors.white.withValues(alpha: 0.2),
                         Colors.white.withValues(alpha: 0),
                       ],
                     ),
@@ -216,34 +245,15 @@ class _InteractiveBankCardState extends State<InteractiveBankCard> with TickerPr
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Metallic chip.
-                  Container(
-                    width: 40,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFE9D8A6), Color(0xFFBFA24B)]),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.black.withValues(alpha: 0.15)),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    'sayeh',
-                    textDirection: TextDirection.ltr,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                      fontFamily: 'Roboto',
-                    ),
-                  ),
-                ],
+            // SayehLogo's wordmark reads the ambient theme's brightness to pick a
+            // readable color (cream on dark, navy on light) — but this card's background
+            // is always the same navy gradient regardless of the app's own theme, so the
+            // wordmark needs to always use the dark-theme (cream) variant here, not
+            // whatever the app happens to be set to.
+            Center(
+              child: Theme(
+                data: Theme.of(context).copyWith(brightness: Brightness.dark),
+                child: const SayehLogo(size: 52, showWordmark: true),
               ),
             ),
           ],

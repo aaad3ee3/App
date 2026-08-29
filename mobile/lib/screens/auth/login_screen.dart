@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/app_config.dart';
 import '../../services/auth_store.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/interactive_bank_card.dart';
+import '../../widgets/interactive_brand_card.dart';
 import '../home_shell.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(child: InteractiveBankCard()),
+                    const Center(child: InteractiveBrandCard()),
                     const SizedBox(height: 12),
                     Text(
                       'تسجيل الدخول',
