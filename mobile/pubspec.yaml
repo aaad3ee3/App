@@ -57,6 +57,9 @@ dependencies:
   # which only runs in a browser and can't be "installed" into this app at all. Same .json
   # animation files work with either player.
   lottie: ^3.5.1
+  # Declarative entrance/loop animations (`.animate().fadeIn()...`) for the balance chip,
+  # promo banner, and tab switches — see the widgets that use it for why each was picked.
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:
@@ -90,6 +93,9 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  assets:
+    - assets/lottie/
 
   # Cairo covers Arabic shaping (the app's primary script); Latin/digits fall back to the
   # platform's bundled Roboto automatically via AppTheme's fontFamilyFallback.

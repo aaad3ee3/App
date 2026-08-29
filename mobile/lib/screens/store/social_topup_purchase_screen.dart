@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/store_order.dart';
@@ -9,6 +10,7 @@ import '../../services/auth_store.dart';
 import '../../services/coupons_service.dart';
 import '../../services/orders_service.dart';
 import '../../services/wallet_service.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/money.dart';
 import '../../widgets/balance_warning_card.dart';
 import '../../widgets/coupon_input.dart';
@@ -149,7 +151,7 @@ class _SocialTopupPurchaseScreenState extends State<SocialTopupPurchaseScreen> {
           const SizedBox(height: 4),
           Text(
             '${widget.product.formattedPrice} ${widget.product.currency} للوحدة — الكمية من $_minQuantity إلى $_maxQuantity',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 20),
           for (final label in widget.product.requiredParams) ...[
@@ -272,20 +274,23 @@ class _SocialTopupResultView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 24),
-        Icon(Icons.hourglass_top_rounded, size: 64, color: Colors.amber.shade700),
+        Icon(Icons.hourglass_top_rounded, size: 64, color: AppColors.warning)
+            .animate()
+            .fadeIn(duration: 300.ms)
+            .scale(begin: const Offset(0.6, 0.6), curve: Curves.easeOutBack, duration: 420.ms),
         const SizedBox(height: 16),
         const Text('تم إرسال طلب الشحن', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(
           'الكمية: ${order.quantity} — الإجمالي: ${formatLydString(order.totalPrice)} LYD',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade600),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),
         Text(
           'الطلب قيد التنفيذ وراح يتحدث تلقائياً. تقدر تتابع حالته من "طلباتي".',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade600),
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 24),
         OutlinedButton(

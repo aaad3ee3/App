@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/category.dart';
@@ -12,6 +13,7 @@ import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
 import '../../widgets/shimmer_box.dart';
 import '../../widgets/tap_scale.dart';
@@ -309,7 +311,10 @@ class _StoreScreenState extends State<StoreScreen> {
           Positioned(
             left: 16,
             bottom: 14,
-            child: _FloatingBalanceChip(balance: _walletBalance!, onTopUp: _goToTopup),
+            child: _FloatingBalanceChip(balance: _walletBalance!, onTopUp: _goToTopup)
+                .animate()
+                .fadeIn(duration: 320.ms)
+                .scale(begin: const Offset(0.7, 0.7), curve: Curves.easeOutBack, duration: 360.ms),
           ),
       ],
     );
@@ -319,7 +324,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (_searching && _results.isEmpty) return const ListRowSkeleton();
 
     if (_searchError != null) {
-      return _CenteredMessage(
+      return EmptyState(
         icon: Icons.wifi_off_rounded,
         title: _searchError!,
         action: OutlinedButton(
@@ -330,10 +335,11 @@ class _StoreScreenState extends State<StoreScreen> {
     }
 
     if (_results.isEmpty) {
-      return _CenteredMessage(
+      return EmptyState(
         icon: Icons.search_off_rounded,
         title: 'لا توجد نتائج لـ "${_query.trim()}"',
         subtitle: 'جرّب كلمة أخرى، أو تصفّح الفئات',
+        lottieAsset: 'assets/lottie/empty_box.json',
       );
     }
 
@@ -366,17 +372,18 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _buildCategories() {
     if (_loading) return const CategoryGridSkeleton();
     if (_error != null) {
-      return _CenteredMessage(
+      return EmptyState(
         icon: Icons.wifi_off_rounded,
         title: _error!,
         action: OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
       );
     }
     if (_categories.isEmpty) {
-      return _CenteredMessage(
+      return EmptyState(
         icon: _kindIcon(_kind),
         title: 'لا توجد فئات متاحة حالياً',
         subtitle: 'راجعنا قريباً — نضيف خدمات جديدة باستمرار',
+        lottieAsset: 'assets/lottie/empty_box.json',
       );
     }
 
@@ -412,44 +419,6 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 }
 
-class _CenteredMessage extends StatelessWidget {
-  const _CenteredMessage({required this.icon, required this.title, this.subtitle, this.action});
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 52, color: AppColors.gold.withValues(alpha: 0.45)),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                subtitle!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
-              ),
-            ],
-            if (action != null) ...[const SizedBox(height: 14), action!],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _PromoSlide {
   const _PromoSlide({required this.title, required this.subtitle, required this.icon});
@@ -574,7 +543,12 @@ class _PromoBannerState extends State<_PromoBanner> {
                         color: Colors.white.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(slide.icon, color: Colors.white, size: 22),
+                      // A continuous slow shimmer is what read as "alive" in the
+                      // competitor's banner (their sparkle animation) — same idea here
+                      // without needing an illustration asset.
+                      child: Icon(slide.icon, color: Colors.white, size: 22)
+                          .animate(onPlay: (c) => c.repeat())
+                          .shimmer(duration: 1800.ms, color: Colors.white.withValues(alpha: 0.9)),
                     ),
                   ],
                 );

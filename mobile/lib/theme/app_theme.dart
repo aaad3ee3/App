@@ -16,9 +16,14 @@ class AppColors {
   static const Color navyLight = Color(0xFF3D5075);
 
   /// The ribbon under the `S`. Accent only — never a large fill, so it keeps its weight.
-  static const Color gold = Color(0xFFC69A66);
-  static const Color goldDark = Color(0xFFA87F4E);
-  static const Color goldLight = Color(0xFFE0BE93);
+  ///
+  /// Pushed more saturated than the logo's own muted tan: a mark reads fine printed small
+  /// and static, but the same low-chroma tone spread across buttons, balances and prices
+  /// on a phone screen is exactly what read as "faded" — a real, verifiable complaint, not
+  /// just taste. Kept in the same warm gold family, just with the chroma turned up.
+  static const Color gold = Color(0xFFD9A53B);
+  static const Color goldDark = Color(0xFFB8822A);
+  static const Color goldLight = Color(0xFFF0C468);
 
   /// The mark's background field.
   static const Color cream = Color(0xFFF7E8CF);

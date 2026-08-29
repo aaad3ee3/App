@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/store_order.dart';
@@ -10,6 +11,7 @@ import '../../services/app_config.dart';
 import '../../services/coupons_service.dart';
 import '../../services/orders_service.dart';
 import '../../services/wallet_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/balance_warning_card.dart';
 import '../../widgets/coupon_input.dart';
 import '../../widgets/secure_payment_badge.dart';
@@ -133,7 +135,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
         Text(widget.product.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         if (widget.product.description?.isNotEmpty == true) ...[
           const SizedBox(height: 8),
-          Text(widget.product.description!, style: TextStyle(color: Colors.grey.shade700)),
+          Text(widget.product.description!, style: const TextStyle(color: AppColors.textSecondary)),
         ],
         const SizedBox(height: 20),
         Card(
@@ -223,7 +225,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
     final image = Image.network(
       widget.product.image!,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => Container(color: Colors.grey.shade200),
+      errorBuilder: (_, _, _) => Container(color: AppColors.border),
     );
     return widget.heroTag != null ? Hero(tag: widget.heroTag!, child: image) : image;
   }
@@ -244,8 +246,11 @@ class _ResultView extends StatelessWidget {
         Icon(
           isCompleted ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
           size: 64,
-          color: isCompleted ? Colors.green : Colors.amber.shade700,
-        ),
+          color: isCompleted ? AppColors.success : AppColors.warning,
+        )
+            .animate()
+            .fadeIn(duration: 300.ms)
+            .scale(begin: const Offset(0.6, 0.6), curve: Curves.easeOutBack, duration: 420.ms),
         const SizedBox(height: 16),
         Text(
           isCompleted ? 'تمت عملية الشراء بنجاح' : 'طلبك قيد المعالجة',
@@ -260,7 +265,7 @@ class _ResultView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('كود البطاقة', style: TextStyle(color: Colors.grey)),
+                  const Text('كود البطاقة', style: TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   SelectableText(
                     order.cardCode!,
@@ -275,7 +280,7 @@ class _ResultView extends StatelessWidget {
           Text(
             'راح تستلم إشعار بمجرد اكتمال طلبك. تقدر تتابع الحالة من "طلباتي".',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600),
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         const SizedBox(height: 24),
         OutlinedButton(

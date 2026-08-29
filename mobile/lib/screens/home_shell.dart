@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
@@ -119,7 +120,12 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             const SayehLogo(size: 26),
             const SizedBox(width: 10),
-            Text(_titles[_index]),
+            // Keyed on the tab index so switching tabs remounts this Text — that's what
+            // makes the animation replay each time, not just once on first build.
+            Text(_titles[_index], key: ValueKey(_index))
+                .animate()
+                .fadeIn(duration: 220.ms)
+                .slideY(begin: 0.3, curve: Curves.easeOut, duration: 220.ms),
           ],
         ),
       ),

@@ -11,6 +11,7 @@ import '../../services/catalog_service.dart';
 import '../../services/orders_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/money.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
@@ -70,16 +71,17 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
     final body = _loading
         ? const ListRowSkeleton()
         : _error != null
-            ? _OrdersMessage(
+            ? EmptyState(
                 icon: Icons.wifi_off_rounded,
                 title: _error!,
                 action: OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
               )
             : _orders.isEmpty
-                ? _OrdersMessage(
+                ? const EmptyState(
                     icon: Icons.receipt_long_rounded,
                     title: 'لا توجد طلبات بعد',
                     subtitle: 'أول ما تشتري بطاقة أو تطلب خدمة، راح تلقاها هنا مع الكود وحالة الطلب.',
+                    lottieAsset: 'assets/lottie/empty_box.json',
                   )
                 : RefreshIndicator(
                     onRefresh: _load,
@@ -108,47 +110,6 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
   }
 }
 
-/// Empty/error state for the orders list. An empty orders tab is the first thing a brand
-/// new customer sees after signing up, so it explains what will appear here rather than
-/// leaving them on a bare "no orders" line wondering whether something broke.
-class _OrdersMessage extends StatelessWidget {
-  const _OrdersMessage({required this.icon, required this.title, this.subtitle, this.action});
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: AppColors.gold.withValues(alpha: 0.45)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                subtitle!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13.5),
-              ),
-            ],
-            if (action != null) ...[const SizedBox(height: 16), action!],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _StatusInfo {
   final String label;
@@ -159,18 +120,18 @@ class _StatusInfo {
 _StatusInfo _statusInfo(String status) {
   switch (status) {
     case 'completed':
-      return const _StatusInfo('مكتمل', Colors.green);
+      return const _StatusInfo('مكتمل', AppColors.success);
     case 'processing':
     case 'pending':
-      return _StatusInfo('قيد التنفيذ', Colors.amber.shade800);
+      return const _StatusInfo('قيد التنفيذ', AppColors.warning);
     case 'failed':
-      return const _StatusInfo('فشل واسترجع المبلغ', Colors.red);
+      return const _StatusInfo('فشل واسترجع المبلغ', AppColors.danger);
     case 'ambiguous_error':
-      return _StatusInfo('قيد المراجعة', Colors.orange.shade800);
+      return const _StatusInfo('قيد المراجعة', AppColors.warning);
     case 'refunded':
-      return const _StatusInfo('تم الاسترجاع', Colors.blueGrey);
+      return const _StatusInfo('تم الاسترجاع', AppColors.info);
     default:
-      return _StatusInfo(status, Colors.grey.shade700);
+      return _StatusInfo(status, AppColors.textSecondary);
   }
 }
 
@@ -298,7 +259,7 @@ class _OrderDetailDialog extends StatelessWidget {
           if (order.targetLink != null) _row('الرابط', order.targetLink!),
           if (order.cardCode != null) ...[
             const SizedBox(height: 8),
-            const Text('كود البطاقة', style: TextStyle(color: Colors.grey)),
+            const Text('كود البطاقة', style: TextStyle(color: AppColors.textSecondary)),
             SelectableText(
               order.cardCode!,
               textDirection: TextDirection.ltr,
@@ -344,7 +305,7 @@ class _OrderDetailDialog extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(color: Colors.grey.shade600)),
+            Text(label, style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(width: 12),
             Flexible(child: Text(value, textAlign: TextAlign.end)),
           ],
