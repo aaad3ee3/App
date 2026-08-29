@@ -116,9 +116,8 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
           children: [
             const SayehLogo(size: 26),
             const SizedBox(width: 10),
@@ -132,6 +131,25 @@ class _HomeShellState extends State<HomeShell> {
                 .animate(key: ValueKey(_index))
                 .fadeIn(duration: 220.ms)
                 .slideY(begin: 0.3, curve: Curves.easeOut, duration: 220.ms),
+            const Spacer(),
+            // A real shortcut, not decoration: jumps straight to the tab it depicts
+            // rather than sitting there as an inert icon — the same "بحث"/profile icon
+            // cluster Libya Play's own header uses next to its logo.
+            IconButton.filledTonal(
+              tooltip: 'بحث',
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _index = 0),
+              icon: const Icon(Icons.search_rounded),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              tooltip: 'حسابي',
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _index = 4),
+              icon: const Icon(Icons.person_outline_rounded),
+            ),
           ],
         ),
       ),

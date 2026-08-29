@@ -49,10 +49,18 @@ const List<HomeSection> kHomeSections = [
   ),
 ];
 
-/// Every keyword here is lifted straight from the backend's own confirmed brand list
+/// Most keywords here come from the backend's own confirmed brand list
 /// (backend/src/modules/catalog/brand-icons.ts's BRAND_HINTS) — real strings the backend
-/// has already verified show up in real category names, not a guessed list.
+/// has already verified show up in real category names. PlayStation/Xbox/Steam/Razer are
+/// the one deliberate addition beyond that list: Libya Play's own app (confirmed by video,
+/// not guessed) files these under its gift-cards section, not games — they're store-credit
+/// cards you redeem on a platform, unlike a direct in-game top-up (PUBG UC, Free Fire
+/// diamonds) which stays a "game".
 const List<String> _giftCardKeywords = [
+  'بلايستيشن', 'بلاي ستيشن', 'playstation', 'psn',
+  'اكس بوكس', 'إكس بوكس', 'xbox',
+  'ستيم', 'steam',
+  'ريزر', 'razer',
   'نتفلكس', 'netflix',
   'ايتونز', 'آيتونز', 'أيتونز', 'itunes',
   'أمازون', 'امازون', 'amazon',
@@ -75,13 +83,21 @@ const List<String> _giftCardKeywords = [
   'بينانس', 'بينايس', 'binance', 'usdt',
   'هواوي', 'huawei',
   'أوبر', 'اوبر', 'uber',
+  // The rest of this batch is also lifted straight from the same reference video's
+  // "بطاقات الهدايا" list, matched by exact/near-exact category name rather than a broad
+  // single word (e.g. not bare "سوا" or "نون") to avoid false-positiving on unrelated names.
+  'بطاقات سوا', 'stc',
+  'بطاقات نون', 'noon',
+  'osn', 'أوسن', 'اوسن',
+  'لايك كارد', 'like card',
+  'ستارز بلدي',
 ];
 
 /// social_topup categories are unconditionally "شحن تطبيقات البث" — Plus only sells
 /// live-streaming coin top-ups under that kind, so no further keyword split is needed.
 /// giftcard categories split by keyword: the curated, confirmed subscription/gift-card
-/// names above are [HomeSectionId.giftCards]; everything else — platforms, consoles,
-/// individual games — falls to [HomeSectionId.games], the default bucket.
+/// names above are [HomeSectionId.giftCards]; everything else — individual games — falls
+/// to [HomeSectionId.games], the default bucket.
 HomeSectionId classifyHomeSection(StoreCategory category) {
   if (category.kind == 'social_topup') return HomeSectionId.liveApps;
   final normalized = category.name.toLowerCase();

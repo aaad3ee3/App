@@ -19,6 +19,7 @@ import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
 import '../../widgets/section_banner.dart';
 import '../../widgets/shimmer_box.dart';
+import '../../widgets/spotlight_carousel.dart';
 import '../../widgets/tap_scale.dart';
 import 'giftcard_purchase_screen.dart';
 import 'section_categories_screen.dart';
@@ -402,30 +403,44 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  /// The Home Dashboard layout: one banner + top-3 grid + "عرض الكل" bar per non-empty
-  /// section, in place of the single flat grid every other store tab still uses.
+  /// The Home Dashboard layout: an auto-advancing spotlight of each section's own
+  /// top-stocked category, then one banner + top-3 grid + "عرض الكل" bar per non-empty
+  /// section — in place of the single flat grid every other store tab still uses.
   Widget _buildDashboardSections() {
     final sections = buildHomeSections(_categories);
+    final spotlight = [
+      for (final data in sections) SpotlightItem(section: data.section, category: data.categories.first),
+    ];
+
     return RefreshIndicator(
       onRefresh: _load,
       child: AnimationLimiter(
         child: ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 84),
-          itemCount: sections.length,
-          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
-            position: index,
-            duration: const Duration(milliseconds: 380),
-            child: SlideAnimation(
-              verticalOffset: 30,
-              curve: Curves.easeOutCubic,
-              child: FadeInAnimation(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: index == sections.length - 1 ? 0 : 22),
-                  child: _HomeSectionBlock(data: sections[index]),
+          itemCount: sections.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: SpotlightCarousel(items: spotlight),
+              );
+            }
+            final sectionIndex = index - 1;
+            return AnimationConfiguration.staggeredList(
+              position: sectionIndex,
+              duration: const Duration(milliseconds: 380),
+              child: SlideAnimation(
+                verticalOffset: 30,
+                curve: Curves.easeOutCubic,
+                child: FadeInAnimation(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: sectionIndex == sections.length - 1 ? 0 : 22),
+                    child: _HomeSectionBlock(data: sections[sectionIndex]),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
