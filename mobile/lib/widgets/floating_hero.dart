@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/category.dart';
 import '../screens/store/category_products_screen.dart';
 import '../theme/app_theme.dart';
 import '../utils/home_sections.dart';
 import 'category_card.dart';
+import 'orbit_badge.dart';
 import 'sayeh_logo.dart';
 import 'smart_network_image.dart';
-import 'tap_scale.dart';
 
 class SpotlightItem {
   const SpotlightItem({required this.section, required this.category});
@@ -62,9 +61,9 @@ class FloatingHero extends StatelessWidget {
                   ),
                   child: const SayehLogo(size: 36),
                 ),
-                Positioned(top: 12, right: 38, child: _FloatBadge(item: items[0], seed: 0)),
-                if (items.length > 1) Positioned(bottom: 12, left: 34, child: _FloatBadge(item: items[1], seed: 1)),
-                if (items.length > 2) Positioned(top: 16, left: 14, child: _FloatBadge(item: items[2], seed: 2)),
+                Positioned(top: 12, right: 38, child: _orbitFor(context, items[0], 0)),
+                if (items.length > 1) Positioned(bottom: 12, left: 34, child: _orbitFor(context, items[1], 1)),
+                if (items.length > 2) Positioned(top: 16, left: 14, child: _orbitFor(context, items[2], 2)),
               ],
             ),
           ),
@@ -83,52 +82,14 @@ class FloatingHero extends StatelessWidget {
       ),
     );
   }
-}
 
-/// One orbiting badge. Each instance runs its own independent, endlessly-reversing
-/// float+tilt loop (a different duration/delay/tilt direction per [seed], the same trick
-/// the reference CSS used — two elements on different keyframe timings so they never
-/// drift in sync and look mechanical).
-class _FloatBadge extends StatelessWidget {
-  const _FloatBadge({required this.item, required this.seed});
-
-  final SpotlightItem item;
-  final int seed;
-
-  @override
-  Widget build(BuildContext context) {
-    final duration = Duration(milliseconds: 3200 + seed * 500);
-    final delay = Duration(milliseconds: seed * 250);
-    final rotateBegin = seed.isEven ? -0.035 : 0.02;
-    final rotateEnd = seed.isEven ? -0.01 : 0.055;
-
-    return TapScale(
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: item.category)),
-          ),
-          child: Container(
-            width: 54,
-            height: 54,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
-            ),
-            child: _BadgeArt(category: item.category),
-          ),
+  Widget _orbitFor(BuildContext context, SpotlightItem item, int seed) => OrbitBadge(
+        seed: seed,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: item.category)),
         ),
-      ),
-    )
-        .animate(onPlay: (controller) => controller.repeat(reverse: true), delay: delay)
-        .moveY(begin: 0, end: -10, duration: duration, curve: Curves.easeInOut)
-        .rotate(begin: rotateBegin, end: rotateEnd, duration: duration, curve: Curves.easeInOut);
-  }
+        child: _BadgeArt(category: item.category),
+      );
 }
 
 class _BadgeArt extends StatelessWidget {

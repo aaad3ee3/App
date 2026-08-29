@@ -1,15 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/orbit_badge.dart';
 import '../widgets/sayeh_logo.dart';
 import 'auth/login_screen.dart';
 
+/// A brand's Simple Icons logo (real, confirmed slugs — the same ones
+/// backend/src/modules/catalog/brand-icons.ts and plus-categorization.ts already use for
+/// these platforms) or, where no real brand applies (Libyana has no consumer logo we can
+/// use), a plain Material icon. Either way this is illustrative — "the kind of thing you
+/// can buy here" — never a claim about specific live inventory.
+class _FloatIcon {
+  const _FloatIcon.brand(String slug, String color)
+      : icon = null,
+        _url = 'https://cdn.simpleicons.org/$slug/$color';
+  const _FloatIcon.icon(this.icon) : _url = null;
+
+  final IconData? icon;
+  final String? _url;
+}
+
 class _Slide {
-  const _Slide({required this.icon, required this.title, required this.body});
+  const _Slide({required this.icon, required this.title, required this.body, this.floatIcons = const []});
   final IconData icon;
   final String title;
   final String body;
+  final List<_FloatIcon> floatIcons;
 }
 
 /// Shown once, on the very first launch, before the customer is asked to sign up.
@@ -34,21 +52,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.card_giftcard_rounded,
       title: 'بطاقات رقمية',
       body: 'بطاقات ألعاب ومتاجر عالمية — بلايستيشن، ستيم، آيتونز وغيرها، بأسعار بالدينار الليبي.',
+      floatIcons: [
+        _FloatIcon.brand('playstation', '0070D1'),
+        _FloatIcon.brand('netflix', 'E50914'),
+        _FloatIcon.brand('steam', '1B2838'),
+      ],
     ),
     _Slide(
       icon: Icons.sports_esports_rounded,
       title: 'شحن ألعاب',
       body: 'شدات ببجي، جواهر فري فاير، وشحن أشهر الألعاب — يوصلك الكود خلال دقائق.',
+      floatIcons: [
+        _FloatIcon.brand('pubg', 'F2A900'),
+        _FloatIcon.brand('callofduty', '000000'),
+        _FloatIcon.brand('genshinimpact', '1F8FCD'),
+      ],
     ),
     _Slide(
       icon: Icons.account_balance_wallet_rounded,
       title: 'اشحن بليبيانا',
       body: 'حوّل رصيد ليبيانا لرقم المتجر، وينضاف لمحفظتك تلقائياً. بعدها تشتري بضغطة.',
+      // No real Libyana consumer logo exists to show here, so this stays icon-only rather
+      // than guessing at a brand mark.
+      floatIcons: [
+        _FloatIcon.icon(Icons.sim_card_rounded),
+        _FloatIcon.icon(Icons.bolt_rounded),
+        _FloatIcon.icon(Icons.qr_code_rounded),
+      ],
     ),
     _Slide(
       icon: Icons.trending_up_rounded,
       title: 'الرشق',
       body: 'متابعين وإعجابات ومشاهدات لكل المنصات، تطلبها من التطبيق مباشرة.',
+      floatIcons: [
+        _FloatIcon.brand('instagram', 'E4405F'),
+        _FloatIcon.brand('tiktok', '000000'),
+        _FloatIcon.brand('youtube', 'FF0000'),
+      ],
     ),
   ];
 
@@ -165,16 +205,39 @@ class _SlideView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 116,
-            height: 116,
-            decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+          // The slide's own icon at rest in the middle, with a few small brand/illustrative
+          // badges floating and tilting around it on an endless loop — the same Phantom-style
+          // "layered floating cards" composition as the store's own home hero, reused here
+          // so a customer's very first screens already carry the app's motion language.
+          SizedBox(
+            height: 160,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.22), blurRadius: 26, spreadRadius: 4)],
+                  ),
+                  child: Icon(slide.icon, size: 46, color: AppColors.gold),
+                ),
+                if (slide.floatIcons.isNotEmpty)
+                  Positioned(top: 2, right: 20, child: OrbitBadge(seed: 0, child: _FloatIconArt(spec: slide.floatIcons[0]))),
+                if (slide.floatIcons.length > 1)
+                  Positioned(bottom: 6, left: 16, child: OrbitBadge(seed: 1, child: _FloatIconArt(spec: slide.floatIcons[1]))),
+                if (slide.floatIcons.length > 2)
+                  Positioned(
+                    top: 28,
+                    left: 6,
+                    child: OrbitBadge(seed: 2, size: 44, child: _FloatIconArt(spec: slide.floatIcons[2])),
+                  ),
+              ],
             ),
-            child: Icon(slide.icon, size: 56, color: AppColors.gold),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 28),
           Text(
             slide.title,
             textAlign: TextAlign.center,
@@ -192,6 +255,25 @@ class _SlideView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FloatIconArt extends StatelessWidget {
+  const _FloatIconArt({required this.spec});
+
+  final _FloatIcon spec;
+
+  @override
+  Widget build(BuildContext context) {
+    if (spec.icon != null) {
+      return Icon(spec.icon, color: AppColors.navy.withValues(alpha: 0.65), size: 22);
+    }
+    return SvgPicture.network(
+      spec._url!,
+      fit: BoxFit.contain,
+      placeholderBuilder: (_) => const SizedBox.shrink(),
+      errorBuilder: (_, _, _) => Icon(Icons.bolt_rounded, color: AppColors.navy.withValues(alpha: 0.4), size: 20),
     );
   }
 }
