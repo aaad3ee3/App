@@ -421,10 +421,19 @@ class _StoreScreenState extends State<StoreScreen> {
 
 
 class _PromoSlide {
-  const _PromoSlide({required this.title, required this.subtitle, required this.icon});
+  const _PromoSlide({required this.title, required this.subtitle, required this.icon}) : imageAsset = null;
+  /// A full branded graphic (already carries its own text/logo) instead of the
+  /// title/subtitle/icon row — see `_PromoBannerState.build`, which switches its whole
+  /// layout (aspect ratio, no gradient padding) based on whether this is set.
+  const _PromoSlide.image(this.imageAsset)
+      : title = '',
+        subtitle = '',
+        icon = Icons.image_rounded;
+
   final String title;
   final String subtitle;
   final IconData icon;
+  final String? imageAsset;
 }
 
 /// A brand-colored strip above the category grid — the browse view otherwise opens
@@ -448,11 +457,14 @@ class _PromoBannerState extends State<_PromoBanner> {
   Timer? _timer;
   int _page = 0;
 
+  // giftcard and smm now have real branded graphics to show instead of the icon+text
+  // row (see _PromoSlide.image) — social_topup doesn't have one yet, so it keeps the
+  // original text rotation. A kind's slides are never mixed between the two styles: the
+  // banner picks one layout for the whole rotation based on the first slide (see build).
   List<_PromoSlide> get _slides => switch (widget.kind) {
         'giftcard' => const [
-            _PromoSlide(title: 'شحن فوري لأشهر الألعاب', subtitle: 'أسعار بالدينار الليبي، يوصلك خلال دقائق', icon: Icons.card_giftcard_rounded),
-            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.card_giftcard_rounded),
-            _PromoSlide(title: 'محفظتك دايم جاهزة', subtitle: 'اشحن رصيدك مرة واشتري بضغطة وحدة في أي وقت', icon: Icons.card_giftcard_rounded),
+            _PromoSlide.image('assets/banners/payment_methods.jpg'),
+            _PromoSlide.image('assets/banners/referral.jpg'),
           ],
         'social_topup' => const [
             _PromoSlide(title: 'شحن برامج البث المباشر', subtitle: 'أزال لايف، بارتي ستار، imo وغيرها — شحن مباشر لحسابك', icon: Icons.live_tv_rounded),
@@ -460,9 +472,8 @@ class _PromoBannerState extends State<_PromoBanner> {
             _PromoSlide(title: 'شحن آمن وموثوق', subtitle: 'يبدأ التنفيذ تلقائياً بعد التأكيد', icon: Icons.live_tv_rounded),
           ],
         _ => const [
-            _PromoSlide(title: 'الرشق — متابعين حقيقيين', subtitle: 'يبدأ التنفيذ مباشرة بعد التأكيد', icon: Icons.rocket_launch_rounded),
-            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.rocket_launch_rounded),
-            _PromoSlide(title: 'تنفيذ آمن وسريع', subtitle: 'خدماتنا موثوقة وأسعارها بالدينار الليبي', icon: Icons.rocket_launch_rounded),
+            _PromoSlide.image('assets/banners/rashq.jpg'),
+            _PromoSlide.image('assets/banners/referral.jpg'),
           ],
       };
 
@@ -490,6 +501,103 @@ class _PromoBannerState extends State<_PromoBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final slides = _slides;
+    final isImageBanner = slides.first.imageAsset != null;
+
+    final pageView = PageView.builder(
+      controller: _controller,
+      itemCount: slides.length,
+      onPageChanged: (i) => setState(() => _page = i),
+      itemBuilder: (context, index) {
+        final slide = slides[index];
+        if (slide.imageAsset != null) {
+          // The graphic already carries its own logo, text and background — no gradient
+          // padding or icon overlay needed, just the image itself.
+          return Image.asset(slide.imageAsset!, fit: BoxFit.cover);
+        }
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    slide.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    slide.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+              ),
+              // A continuous slow shimmer is what read as "alive" in the
+              // competitor's banner (their sparkle animation) — same idea here
+              // without needing an illustration asset.
+              child: Icon(slide.icon, color: Colors.white, size: 22)
+                  .animate(onPlay: (c) => c.repeat())
+                  .shimmer(duration: 1800.ms, color: Colors.white.withValues(alpha: 0.9)),
+            ),
+          ],
+        );
+      },
+    );
+
+    final dots = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        slides.length,
+        (i) => AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+          width: i == _page ? 14 : 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: (isImageBanner ? AppColors.navy : Colors.white).withValues(alpha: i == _page ? 0.95 : 0.35),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+      ),
+    );
+
+    if (isImageBanner) {
+      // Sized to the graphics' own aspect ratio (5:4) rather than the slim icon+text
+      // strip's fixed height — cropping a banner that has real text baked into it would
+      // make that text unreadable.
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              boxShadow: AppTheme.cardShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              child: AspectRatio(aspectRatio: 900 / 720, child: pageView),
+            ),
+          ),
+          const SizedBox(height: 8),
+          dots,
+        ],
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
       decoration: BoxDecoration(
@@ -504,74 +612,9 @@ class _PromoBannerState extends State<_PromoBanner> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: 52,
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: _slides.length,
-              onPageChanged: (i) => setState(() => _page = i),
-              itemBuilder: (context, index) {
-                final slide = _slides[index];
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            slide.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15.5),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            slide.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      // A continuous slow shimmer is what read as "alive" in the
-                      // competitor's banner (their sparkle animation) — same idea here
-                      // without needing an illustration asset.
-                      child: Icon(slide.icon, color: Colors.white, size: 22)
-                          .animate(onPlay: (c) => c.repeat())
-                          .shimmer(duration: 1800.ms, color: Colors.white.withValues(alpha: 0.9)),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
+          SizedBox(height: 52, child: pageView),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _slides.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                width: i == _page ? 14 : 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: i == _page ? 0.95 : 0.4),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
+          dots,
         ],
       ),
     );

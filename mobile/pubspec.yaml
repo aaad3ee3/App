@@ -96,6 +96,7 @@ flutter:
 
   assets:
     - assets/lottie/
+    - assets/banners/
 
   # Cairo covers Arabic shaping (the app's primary script); Latin/digits fall back to the
   # platform's bundled Roboto automatically via AppTheme's fontFamilyFallback.
