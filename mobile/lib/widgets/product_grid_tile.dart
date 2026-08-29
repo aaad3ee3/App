@@ -98,11 +98,10 @@ class ProductGridTile extends StatelessWidget {
                             ? '${product.formattedPrice} ${product.currency}/1000'
                             : '${product.formattedPrice} ${product.currency}',
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
                           color: AppColors.gold,
-                          shadows: [Shadow(color: AppColors.gold.withValues(alpha: 0.35), blurRadius: 10)],
                         ),
                       ),
                     ),
