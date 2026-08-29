@@ -33,7 +33,10 @@ jobs:
 
       - name: Build release APK
         working-directory: mobile
-        run: flutter build apk --release
+        # Without --dart-define, ApiConfig.baseUrl falls back to localhost:3000 (see
+        # lib/config/api_config.dart), which on a real phone is unreachable and surfaces as
+        # "تعذر الاتصال بالخادم" no matter how good the device's actual internet connection is.
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://sayeh-api.onrender.com
 
       - uses: actions/upload-artifact@v4
         with:
