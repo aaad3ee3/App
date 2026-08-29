@@ -36,3 +36,19 @@ jobs:
         with:
           name: sayeh-app
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      # Also publish the APK to a dedicated branch (force-pushed, single commit) so it can
+      # be fetched over plain git instead of the Actions artifact API — some networks can
+      # reach github.com but not the artifact storage CDN it redirects downloads to.
+      - name: Publish APK to apk-latest branch
+        run: |
+          mkdir /tmp/apk-branch
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk /tmp/apk-branch/app-release.apk
+          cd /tmp/apk-branch
+          git init -q -b apk-latest
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add app-release.apk
+          git commit -q -m "APK build from ${{ github.sha }}"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin apk-latest
