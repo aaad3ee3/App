@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/app_config.dart';
 import '../../services/auth_store.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/sayeh_logo.dart';
+import '../../widgets/interactive_bank_card.dart';
 import '../home_shell.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
@@ -125,8 +125,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SayehLogo(size: 72, showWordmark: true),
-                    const SizedBox(height: 36),
+                    const Center(child: InteractiveBankCard()),
+                    const SizedBox(height: 12),
                     Text(
                       'تسجيل الدخول',
                       textAlign: TextAlign.center,
