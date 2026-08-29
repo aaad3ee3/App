@@ -13,22 +13,18 @@ import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/home_sections.dart';
+import '../../widgets/category_card.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
+import '../../widgets/section_banner.dart';
 import '../../widgets/shimmer_box.dart';
-import '../../widgets/smart_network_image.dart';
 import '../../widgets/tap_scale.dart';
-import 'category_products_screen.dart';
 import 'giftcard_purchase_screen.dart';
+import 'section_categories_screen.dart';
 import 'smm_purchase_screen.dart';
 import 'social_topup_purchase_screen.dart';
 import '../topup/topup_screen.dart';
-
-IconData _kindIcon(String kind) => switch (kind) {
-      'giftcard' => Icons.card_giftcard_rounded,
-      'social_topup' => Icons.live_tv_rounded,
-      _ => Icons.trending_up_rounded,
-    };
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({
@@ -46,12 +42,6 @@ class StoreScreen extends StatefulWidget {
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
-
-const _kindLabels = {
-  'giftcard': 'بطاقات الألعاب',
-  'smm': 'الرشق',
-  'social_topup': 'شحن بث',
-};
 
 class _StoreScreenState extends State<StoreScreen> {
   /// Long enough that a customer typing a word does not fire a request per letter, short
@@ -72,6 +62,12 @@ class _StoreScreenState extends State<StoreScreen> {
   bool _searchOpen = false;
 
   late String _kind = widget.initialKind;
+
+  /// The main "المتجر" tab passes more than one kind (giftcard + social_topup) so it can
+  /// render the Home Dashboard's sectioned layout across both at once; every other
+  /// instance (e.g. الرشق's own tab) passes exactly one kind and keeps the plain flat grid.
+  bool get _isDashboard => widget.kinds.length > 1;
+
   List<StoreCategory> _categories = [];
   bool _loading = true;
   String? _error;
@@ -142,7 +138,13 @@ class _StoreScreenState extends State<StoreScreen> {
       _error = null;
     });
     try {
-      final categories = await _catalogService.getCategories(kind: _kind);
+      // No kind filter in dashboard mode: one request covers both giftcard and
+      // social_topup, then classifyHomeSection sorts the results into sections client-side.
+      // Filtered against widget.kinds afterward since an unfiltered fetch would also
+      // include smm — الرشق has its own tab and must not bleed into this one.
+      final categories = _isDashboard
+          ? (await _catalogService.getCategories()).where((c) => widget.kinds.contains(c.kind)).toList()
+          : await _catalogService.getCategories(kind: _kind);
       if (!mounted) return;
       setState(() {
         _categories = categories;
@@ -155,14 +157,6 @@ class _StoreScreenState extends State<StoreScreen> {
         _loading = false;
       });
     }
-  }
-
-  void _switchKind(String kind) {
-    if (kind == _kind) return;
-    setState(() => _kind = kind);
-    _load();
-    // The tab scopes search too, so an open query has to be re-run against the new one.
-    if (_isSearching) _runSearch(_query);
   }
 
   bool get _isSearching => _query.trim().length >= _minQueryLength;
@@ -188,7 +182,15 @@ class _StoreScreenState extends State<StoreScreen> {
       _searchError = null;
     });
     try {
-      final results = await _catalogService.search(query.trim(), kind: _kind);
+      List<CatalogSearchResult> results;
+      if (_isDashboard) {
+        // One search per kind rather than an unscoped one: an unscoped search would also
+        // reach into smm's results, which الرشق's own tab owns.
+        final perKind = await Future.wait(widget.kinds.map((k) => _catalogService.search(query.trim(), kind: k)));
+        results = perKind.expand((r) => r).toList();
+      } else {
+        results = await _catalogService.search(query.trim(), kind: _kind);
+      }
       if (!mounted || seq != _searchSeq) return;
       setState(() {
         _results = results;
@@ -267,20 +269,6 @@ class _StoreScreenState extends State<StoreScreen> {
                 ],
               ),
             ),
-            // Hidden when this instance only ever shows one kind (see the standalone
-            // الرشق tab in home_shell.dart) — a segmented control with a single option
-            // has nothing to switch between.
-            if (widget.kinds.length > 1)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: SegmentedButton<String>(
-                  segments: widget.kinds
-                      .map((k) => ButtonSegment(value: k, label: Text(_kindLabels[k] ?? k), icon: Icon(_kindIcon(k))))
-                      .toList(),
-                  selected: {_kind},
-                  onSelectionChanged: (s) => _switchKind(s.first),
-                ),
-              ),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
@@ -374,12 +362,14 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     if (_categories.isEmpty) {
       return EmptyState(
-        icon: _kindIcon(_kind),
+        icon: kindIcon(_kind),
         title: 'لا توجد فئات متاحة حالياً',
         subtitle: 'راجعنا قريباً — نضيف خدمات جديدة باستمرار',
         lottieAsset: 'assets/lottie/empty_box.json',
       );
     }
+
+    if (_isDashboard) return _buildDashboardSections();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -403,7 +393,36 @@ class _StoreScreenState extends State<StoreScreen> {
               verticalOffset: 30,
               curve: Curves.easeOutCubic,
               child: FadeInAnimation(
-                child: _CategoryCard(category: _categories[index]),
+                child: CategoryCard(category: _categories[index]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The Home Dashboard layout: one banner + top-3 grid + "عرض الكل" bar per non-empty
+  /// section, in place of the single flat grid every other store tab still uses.
+  Widget _buildDashboardSections() {
+    final sections = buildHomeSections(_categories);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: AnimationLimiter(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 84),
+          itemCount: sections.length,
+          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 380),
+            child: SlideAnimation(
+              verticalOffset: 30,
+              curve: Curves.easeOutCubic,
+              child: FadeInAnimation(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: index == sections.length - 1 ? 0 : 22),
+                  child: _HomeSectionBlock(data: sections[index]),
+                ),
               ),
             ),
           ),
@@ -465,111 +484,91 @@ class _FloatingBalanceChip extends StatelessWidget {
   }
 }
 
-class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({required this.category});
+/// One Home Dashboard section: its banner, a top-3 preview grid of its best-stocked
+/// categories, and — only when the section has more than 3 — a bar down to the rest.
+class _HomeSectionBlock extends StatelessWidget {
+  const _HomeSectionBlock({required this.data});
 
-  final StoreCategory category;
+  final HomeSectionData data;
+
+  static const _previewCount = 3;
+
+  void _openViewAll(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SectionCategoriesScreen(section: data.section, categories: data.categories)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = data.categories.take(_previewCount).toList();
+    final remaining = data.categories.length - preview.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionBanner(section: data.section, onViewAll: () => _openViewAll(context)),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.72,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [for (final category in preview) CategoryCard(category: category)],
+        ),
+        if (remaining > 0) ...[
+          const SizedBox(height: 10),
+          _ViewAllBar(label: '+$remaining فئة أخرى', onTap: () => _openViewAll(context)),
+        ],
+      ],
+    );
+  }
+}
+
+/// The bottom bar under a section's preview grid — the rest of a section's categories are
+/// one tap away rather than pushed into an ever-taller home screen.
+class _ViewAllBar extends StatelessWidget {
+  const _ViewAllBar({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return TapScale(
-      child: Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: category)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Container(
-                // Supplier art arrives at wildly different sizes and backgrounds; a warm
-                // tint behind it keeps the grid looking even whether or not it loads.
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: isDark
-                        ? [const Color(0xFF26344C), AppColors.darkSurface]
-                        : [AppColors.creamLight, AppColors.cream.withValues(alpha: 0.55)],
-                  ),
-                ),
-                child: category.image == null
-                    ? _fallbackIcon(context)
-                    : isBrandIconUrl(category.image!)
-                        // A brand's flat single-color glyph (several are literally black)
-                        // reads as washed-out or vanishes outright when stretched full-bleed
-                        // over this gradient the way a real photo is — a fixed near-white
-                        // badge guarantees contrast regardless of theme or brand color.
-                        ? BrandIconBadge(category.image!)
-                        : SmartNetworkImage(
-                            category.image!,
-                            // Full-bleed rather than contained-with-padding: Libya Play's
-                            // own rectangular game art ends up looking like an afterthought
-                            // floating in a corner under `contain` + padding, which is what
-                            // made the grid look unfinished. `cover` fills the tile
-                            // edge-to-edge like every competitor's store grid does.
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, _, _) => _fallbackIcon(context),
-                            loadingBuilder: (context, child, progress) => progress == null
-                                ? child
-                                : const Center(
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
-                                    ),
-                                  ),
-                          ),
-              ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurfaceHigh : AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.25)),
             ),
-            // A thin accent line between image and label — the small seam a dense grid of
-            // otherwise-plain rectangles needs to read as designed rather than default.
-            Container(height: 2.5, color: AppColors.gold.withValues(alpha: 0.55)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(6, 7, 6, 8),
-              child: Column(
-                children: [
-                  Text(
-                    category.name,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                  ),
-                  // Tells the customer there is something behind the tile before they
-                  // spend a tap finding out. Hidden at zero rather than showing "0 منتج",
-                  // which advertises an empty shelf.
-                  if (category.productCount > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${category.productCount} منتج',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('عرض الكل', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.gold)),
+                    SizedBox(width: 2),
+                    Icon(Icons.chevron_left_rounded, size: 16, color: AppColors.gold),
                   ],
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
-
-  Widget _fallbackIcon(BuildContext context) => Center(
-        child: Icon(
-          _kindIcon(category.kind),
-          size: 32,
-          color: AppColors.gold.withValues(alpha: 0.6),
-        ),
-      );
 }
