@@ -120,10 +120,14 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             const SayehLogo(size: 26),
             const SizedBox(width: 10),
-            // Keyed on the tab index so switching tabs remounts this Text — that's what
-            // makes the animation replay each time, not just once on first build.
-            Text(_titles[_index], key: ValueKey(_index))
-                .animate()
+            // The key has to be on .animate() itself, not the Text inside it — .animate()
+            // wraps the Text in an Animate widget, and Animate only replays on
+            // didUpdateWidget for a handful of specific property changes (controller,
+            // duration, target/value), never because its child changed. A key one level
+            // too deep silently no-ops: this key is what makes Flutter tear down and
+            // recreate the Animate element (and so replay it) on every tab switch.
+            Text(_titles[_index])
+                .animate(key: ValueKey(_index))
                 .fadeIn(duration: 220.ms)
                 .slideY(begin: 0.3, curve: Curves.easeOut, duration: 220.ms),
           ],
