@@ -186,9 +186,10 @@ class _OrderTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Icon(
-                _orderKindIcon(order.kind),
-                color: Theme.of(context).colorScheme.primary,
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: status.color.withValues(alpha: 0.14),
+                child: Icon(_orderKindIcon(order.kind), color: status.color, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -5,6 +5,7 @@ import '../services/app_config.dart';
 import '../services/auth_store.dart';
 import '../services/settings_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/glow_blob.dart';
 import 'auth/delete_account_screen.dart';
 import 'auth/link_phone_screen.dart';
 import 'auth/login_screen.dart';
@@ -43,41 +44,53 @@ class ProfileScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          child: Padding(
+        // Same treatment as the wallet balance card — a navy gradient with a soft gold
+        // glow in the corner — so the two "hero" cards a customer sees most feel like
+        // the same app instead of one being styled and the other a plain default Card.
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          child: Container(
             padding: const EdgeInsets.all(20),
-            child: Row(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.navy, AppColors.navyDark],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+            ),
+            child: Stack(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                const Positioned(top: -30, left: -20, child: GlowBlob(size: 110, alpha: 0.12)),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColors.gold,
+                      child: Text(
+                        initial,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.fullName?.isNotEmpty == true ? user!.fullName! : 'مستخدم',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user?.fullName?.isNotEmpty == true ? user!.fullName! : 'مستخدم',
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            // Email is the identity — the address the customer signs in with.
+                            user?.email ?? '',
+                            textDirection: TextDirection.ltr,
+                            style: TextStyle(color: AppColors.cream.withValues(alpha: 0.82)),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        // Email is the identity — the address the customer signs in with.
-                        user?.email ?? '',
-                        textDirection: TextDirection.ltr,
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -10,6 +10,7 @@ import '../../services/auth_store.dart';
 import '../../services/binance_topup_service.dart';
 import '../../services/topup_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/glow_blob.dart';
 import '../auth/link_phone_screen.dart';
 
 enum _TopupMethod { libyana, binance }
@@ -370,29 +371,41 @@ class _PendingView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
-          child: Padding(
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          child: Container(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.navy, AppColors.navyDark],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+            ),
+            child: Stack(
               children: [
-                Row(
+                const Positioned(top: -30, right: -20, child: GlowBlob(size: 110, alpha: 0.12)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded),
-                    const SizedBox(width: 8),
-                    Text('تعليمات التحويل', style: Theme.of(context).textTheme.titleMedium),
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text('تعليمات التحويل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _InstructionStep(number: 1, text: 'افتح تطبيق ليبيانا أو *121# من رقمك ${topup.senderPhone}'),
+                    _InstructionStep(
+                      number: 2,
+                      text: topup.requestedAmount != null
+                          ? 'حوّل مبلغ ${topup.requestedAmount} دينار إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}'
+                          : 'حوّل أي مبلغ تحب إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}',
+                    ),
+                    const _InstructionStep(number: 3, text: 'راح يتم شحن رصيدك تلقائيًا خلال دقائق من التحويل'),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _InstructionStep(number: 1, text: 'افتح تطبيق ليبيانا أو *121# من رقمك ${topup.senderPhone}'),
-                _InstructionStep(
-                  number: 2,
-                  text: topup.requestedAmount != null
-                      ? 'حوّل مبلغ ${topup.requestedAmount} دينار إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}'
-                      : 'حوّل أي مبلغ تحب إلى الرقم:\n${StoreConfig.libyanaTopupPhoneNumber}',
-                ),
-                const _InstructionStep(number: 3, text: 'راح يتم شحن رصيدك تلقائيًا خلال دقائق من التحويل'),
               ],
             ),
           ),
@@ -432,7 +445,11 @@ class _InstructionStep extends StatelessWidget {
             child: Text('$number', style: const TextStyle(color: Colors.white, fontSize: 12)),
           ),
           const SizedBox(width: 10),
-          Expanded(child: Text(text)),
+          // This card's background is a fixed navy gradient regardless of light/dark
+          // theme (see _PendingView) — text left at the theme's default color would
+          // turn invisible in light mode, the same bug already fixed on the wallet's
+          // pending-topup banner.
+          Expanded(child: Text(text, style: const TextStyle(color: Colors.white))),
         ],
       ),
     );
@@ -622,7 +639,7 @@ class _StatusRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600)),
+          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),

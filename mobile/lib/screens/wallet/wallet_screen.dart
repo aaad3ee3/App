@@ -8,6 +8,7 @@ import '../../services/auth_store.dart';
 import '../../services/topup_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/glow_blob.dart';
 import '../topup/topup_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -185,16 +186,8 @@ class _BalanceCard extends StatelessWidget {
             // top-of-screen ambient glow, scaled down onto a single card. Gold rather
             // than a low-alpha neutral tone: a grey/white glow over navy read as a
             // smudge in testing, gold keeps its color even faint.
-            Positioned(
-              top: -40,
-              right: -30,
-              child: _glowBlob(120, 0.14),
-            ),
-            Positioned(
-              bottom: -50,
-              left: -40,
-              child: _glowBlob(150, 0.10),
-            ),
+            const Positioned(top: -40, right: -30, child: GlowBlob(size: 120, alpha: 0.14)),
+            const Positioned(bottom: -50, left: -40, child: GlowBlob(size: 150, alpha: 0.10)),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -260,15 +253,6 @@ class _BalanceCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _glowBlob(double size, double alpha) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [AppColors.gold.withValues(alpha: alpha), AppColors.gold.withValues(alpha: 0)]),
-        ),
-      );
 }
 
 class _PendingTopupBanner extends StatelessWidget {
