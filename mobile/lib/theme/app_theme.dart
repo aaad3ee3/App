@@ -106,7 +106,9 @@ class AppTheme {
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.navy,
         elevation: 0,
-        scrolledUnderElevation: 0,
+        // A hairline shadow appears only once content actually scrolls under the bar —
+        // the "sticky header" signal every long list/grid in this app needs but never had.
+        scrolledUnderElevation: 3,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleTextStyle: TextStyle(
@@ -171,7 +173,7 @@ class AppTheme {
         backgroundColor: AppColors.darkBackground,
         foregroundColor: AppColors.cream,
         elevation: 0,
-        scrolledUnderElevation: 0,
+        scrolledUnderElevation: 3,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         titleTextStyle: TextStyle(
@@ -224,7 +226,15 @@ class AppTheme {
             displayColor: colorScheme.onSurface,
           ),
       cardTheme: CardThemeData(
-        elevation: 0,
+        // Real depth instead of a flat bordered box — every card in the app (category
+        // tiles, product cards, the balance card, order rows) was sitting at elevation 0
+        // with only a 1px outline, which reads as a wireframe rather than a designed
+        // surface. A soft, low shadow plus the existing border gives definition without
+        // the harsh default Material shadow.
+        elevation: 3,
+        shadowColor: colorScheme.brightness == Brightness.dark
+            ? Colors.black.withValues(alpha: 0.55)
+            : AppColors.navy.withValues(alpha: 0.18),
         margin: EdgeInsets.zero,
         color: colorScheme.surface,
         shape: RoundedRectangleBorder(
