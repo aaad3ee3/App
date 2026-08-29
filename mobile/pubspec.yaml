@@ -53,6 +53,10 @@ dependencies:
   # the motion spec that's actually Flutter (not the Moti/React Native or CSS snippets
   # from the same doc, which don't apply to this codebase).
   flutter_staggered_animations: ^1.1.1
+  # Plays Lottie (After Effects) animations — the Flutter equivalent of airbnb/lottie-web,
+  # which only runs in a browser and can't be "installed" into this app at all. Same .json
+  # animation files work with either player.
+  lottie: ^3.5.1
 
 dev_dependencies:
   flutter_test:
