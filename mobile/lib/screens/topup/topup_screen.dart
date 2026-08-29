@@ -228,7 +228,7 @@ class _TopupScreenState extends State<TopupScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('رقم هاتفك المسجل', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                        const Text('رقم هاتفك المسجل', style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
                         const SizedBox(height: 2),
                         Text(
                           phone,

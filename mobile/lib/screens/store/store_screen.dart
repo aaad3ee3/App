@@ -511,9 +511,16 @@ class _PromoBannerState extends State<_PromoBanner> {
       itemBuilder: (context, index) {
         final slide = slides[index];
         if (slide.imageAsset != null) {
-          // The graphic already carries its own logo, text and background — no gradient
-          // padding or icon overlay needed, just the image itself.
-          return Image.asset(slide.imageAsset!, fit: BoxFit.cover);
+          // The three graphics aren't all the same aspect ratio (payment_methods is
+          // squarer, rashq is wider — each was cropped only as far as its own dead
+          // space allowed without cutting real content). BoxFit.cover would crop
+          // whichever one doesn't match the shared frame; contain never crops, at the
+          // cost of thin bars on the narrower/shorter images — invisible here since
+          // every graphic's own edges are already near-black, same as the container.
+          return Container(
+            color: Colors.black,
+            child: Image.asset(slide.imageAsset!, fit: BoxFit.contain),
+          );
         }
         return Row(
           children: [
@@ -589,7 +596,10 @@ class _PromoBannerState extends State<_PromoBanner> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              child: AspectRatio(aspectRatio: 900 / 720, child: pageView),
+              // A shared 7:5 frame across every image slide, not each graphic's own
+              // ratio — they aren't all the same shape (see the imageAsset branch
+              // above), and a PageView needs one fixed size for every page.
+              child: AspectRatio(aspectRatio: 1.4, child: pageView),
             ),
           ),
           const SizedBox(height: 8),

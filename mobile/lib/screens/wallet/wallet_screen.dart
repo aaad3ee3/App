@@ -266,14 +266,22 @@ class _PendingTopupBanner extends StatelessWidget {
                       topup.requestedAmount != null
                           ? 'طلب شحن بقيمة ${topup.requestedAmount} بانتظار التحويل'
                           : 'طلب شحن بانتظار التحويل',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      // warningBg is always the same pale cream regardless of light/dark
+                      // theme — text left at the ambient default color turned nearly
+                      // invisible in dark mode, where that default is a light color too.
+                      // Fixed, non-theme-dependent text colors here since the background
+                      // is fixed too.
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 4),
-                    const Text('اضغط لعرض تفاصيل التحويل', style: TextStyle(fontSize: 13)),
+                    const Text(
+                      'اضغط لعرض تفاصيل التحويل',
+                      style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left_rounded),
+              const Icon(Icons.chevron_left_rounded, color: AppColors.textSecondary),
             ],
           ),
         ),

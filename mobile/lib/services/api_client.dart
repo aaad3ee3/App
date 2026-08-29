@@ -36,7 +36,12 @@ class ApiClient {
     Object? body,
   }) async {
     final uri = Uri.parse('${ApiConfig.apiV1}$path').replace(queryParameters: query);
-    final headers = {'Content-Type': 'application/json'};
+    // Only claim a JSON body when one is actually being sent — a POST with no body
+    // (cancel, logout, favorite/unfavorite) still carried this header before, and
+    // Fastify's own JSON parser rejects "Content-Type: application/json" paired with a
+    // truly empty body outright, surfacing its raw parser error to the customer instead
+    // of the action just succeeding.
+    final headers = <String, String>{if (body != null) 'Content-Type': 'application/json'};
     final token = tokenProvider();
     if (token != null) headers['Authorization'] = 'Bearer $token';
 
