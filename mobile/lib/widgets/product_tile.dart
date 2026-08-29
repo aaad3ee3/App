@@ -36,9 +36,11 @@ class ProductTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final image = product.image != null
-        ? SmartNetworkImage(product.image!, errorBuilder: (_, _, _) => _placeholder(context))
-        : _placeholder(context);
+    final image = product.image == null
+        ? _placeholder(context)
+        : isBrandIconUrl(product.image!)
+            ? Container(color: AppColors.darkSurfaceHigh.withValues(alpha: 0.4), child: BrandIconBadge(product.image!, size: 44, padding: 9))
+            : SmartNetworkImage(product.image!, errorBuilder: (_, _, _) => _placeholder(context));
 
     return TapScale(
       child: Card(

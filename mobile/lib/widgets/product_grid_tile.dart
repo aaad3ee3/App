@@ -35,9 +35,14 @@ class ProductGridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedImage = product.image ?? fallbackImage;
-    final image = resolvedImage != null
-        ? SmartNetworkImage(resolvedImage, errorBuilder: (_, _, _) => _placeholder())
-        : _placeholder();
+    final image = resolvedImage == null
+        ? _placeholder()
+        : isBrandIconUrl(resolvedImage)
+            // Same washed-out/invisible problem as the category grid: a brand's flat glyph
+            // (several are literally black) needs a fixed-contrast badge, not a cover-fit
+            // smear over this card's own background.
+            ? Container(color: AppColors.darkSurfaceHigh.withValues(alpha: 0.4), child: BrandIconBadge(resolvedImage, size: 56, padding: 12))
+            : SmartNetworkImage(resolvedImage, errorBuilder: (_, _, _) => _placeholder());
 
     return TapScale(
       child: Card(

@@ -286,6 +286,23 @@ class _CategoryHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A brand's flat glyph (several are literally black) smeared full-bleed across this
+    // strip is the same washed-out/invisible problem as the category grid tile — show it
+    // as a proper badge on a solid tint instead.
+    if (isBrandIconUrl(imageUrl)) {
+      return SizedBox(
+        height: 130,
+        width: double.infinity,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+          child: Container(
+            color: AppColors.darkSurfaceHigh,
+            child: BrandIconBadge(imageUrl, size: 84, padding: 18),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 130,
       width: double.infinity,

@@ -497,30 +497,35 @@ class _CategoryCard extends StatelessWidget {
                         : [AppColors.creamLight, AppColors.cream.withValues(alpha: 0.55)],
                   ),
                 ),
-                child: category.image != null
-                    ? SmartNetworkImage(
-                        category.image!,
-                        // Full-bleed rather than contained-with-padding: a small square
-                        // brand icon (Simple Icons) or Libya Play's own rectangular game
-                        // art both end up looking like an afterthought floating in a
-                        // corner under `contain` + padding, which is what made the grid
-                        // look unfinished. `cover` fills the tile edge-to-edge like every
-                        // competitor's store grid does, cropping rather than shrinking.
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (_, _, _) => _fallbackIcon(context),
-                        loadingBuilder: (context, child, progress) => progress == null
-                            ? child
-                            : const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
-                                ),
-                              ),
-                      )
-                    : _fallbackIcon(context),
+                child: category.image == null
+                    ? _fallbackIcon(context)
+                    : isBrandIconUrl(category.image!)
+                        // A brand's flat single-color glyph (several are literally black)
+                        // reads as washed-out or vanishes outright when stretched full-bleed
+                        // over this gradient the way a real photo is — a fixed near-white
+                        // badge guarantees contrast regardless of theme or brand color.
+                        ? BrandIconBadge(category.image!)
+                        : SmartNetworkImage(
+                            category.image!,
+                            // Full-bleed rather than contained-with-padding: Libya Play's
+                            // own rectangular game art ends up looking like an afterthought
+                            // floating in a corner under `contain` + padding, which is what
+                            // made the grid look unfinished. `cover` fills the tile
+                            // edge-to-edge like every competitor's store grid does.
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (_, _, _) => _fallbackIcon(context),
+                            loadingBuilder: (context, child, progress) => progress == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+                                    ),
+                                  ),
+                          ),
               ),
             ),
             // A thin accent line between image and label — the small seam a dense grid of
