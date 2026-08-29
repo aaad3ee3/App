@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ambient_glow.dart';
 import '../widgets/sayeh_logo.dart';
 import '../widgets/sign_in_gate.dart';
 import 'profile_screen.dart';
@@ -133,17 +134,40 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
       ),
-      body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'المتجر'),
-          NavigationDestination(icon: Icon(Icons.trending_up_rounded), selectedIcon: Icon(Icons.trending_up_rounded), label: 'الرشق'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'طلباتي'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),
+      body: Stack(
+        children: [
+          // Purely a dark-mode touch — on the light theme's cream surfaces the same
+          // glow would just read as a smudge, not an accent.
+          if (Theme.of(context).brightness == Brightness.dark) const AmbientGlow(),
+          IndexedStack(index: _index, children: _pages),
         ],
+      ),
+      // Deliberately NOT extendBody: true — several tabs (see StoreScreen's floating
+      // balance chip) position their own overlays with a `bottom:` offset tuned to a
+      // body area that stops above the nav bar. Extending the body under the floating
+      // pill would silently pull those overlays down behind it instead of making
+      // content peek through, which is not worth it for a look this app doesn't use.
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Container(
+          // The shadow has to live on this outer Container, not the ClipRRect below —
+          // a shadow painted *inside* a clip just gets clipped away with everything else.
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), boxShadow: AppTheme.cardShadow),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              destinations: const [
+                NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'المتجر'),
+                NavigationDestination(icon: Icon(Icons.trending_up_rounded), selectedIcon: Icon(Icons.trending_up_rounded), label: 'الرشق'),
+                NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'طلباتي'),
+                NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
+                NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
