@@ -16,6 +16,7 @@ import '../../widgets/balance_warning_card.dart';
 import '../../widgets/coupon_input.dart';
 import '../../widgets/secure_payment_badge.dart';
 import '../../widgets/sign_in_gate.dart';
+import '../../widgets/smart_network_image.dart';
 import '../topup/topup_screen.dart';
 
 class GiftcardPurchaseScreen extends StatefulWidget {
@@ -222,9 +223,8 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
   }
 
   Widget _heroImage() {
-    final image = Image.network(
+    final image = SmartNetworkImage(
       widget.product.image!,
-      fit: BoxFit.cover,
       errorBuilder: (_, _, _) => Container(color: AppColors.border),
     );
     return widget.heroTag != null ? Hero(tag: widget.heroTag!, child: image) : image;

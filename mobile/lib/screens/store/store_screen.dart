@@ -16,6 +16,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
 import '../../widgets/shimmer_box.dart';
+import '../../widgets/smart_network_image.dart';
 import '../../widgets/tap_scale.dart';
 import 'category_products_screen.dart';
 import 'giftcard_purchase_screen.dart';
@@ -497,7 +498,7 @@ class _CategoryCard extends StatelessWidget {
                   ),
                 ),
                 child: category.image != null
-                    ? Image.network(
+                    ? SmartNetworkImage(
                         category.image!,
                         // Full-bleed rather than contained-with-padding: a small square
                         // brand icon (Simple Icons) or Libya Play's own rectangular game

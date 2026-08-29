@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
+import 'smart_network_image.dart';
 import 'tap_scale.dart';
 
 /// A 2-column grid card for a product — real cover art top, name, price, and a quick-buy
@@ -16,6 +17,7 @@ class ProductGridTile extends StatelessWidget {
     this.heroTag,
     this.isFavorite,
     this.onToggleFavorite,
+    this.fallbackImage,
   });
 
   final StoreProduct product;
@@ -24,10 +26,17 @@ class ProductGridTile extends StatelessWidget {
   final bool? isFavorite;
   final ValueChanged<bool>? onToggleFavorite;
 
+  /// The category's own image (its platform's brand icon, for SMM/social-topup
+  /// categories) — used when the product itself has none, e.g. Plus's SMM services never
+  /// ship per-service art. Showing the platform logo is a real fact about the product
+  /// (which platform it's for), not a stand-in for missing data.
+  final String? fallbackImage;
+
   @override
   Widget build(BuildContext context) {
-    final image = product.image != null
-        ? Image.network(product.image!, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder())
+    final resolvedImage = product.image ?? fallbackImage;
+    final image = resolvedImage != null
+        ? SmartNetworkImage(resolvedImage, errorBuilder: (_, _, _) => _placeholder())
         : _placeholder();
 
     return TapScale(

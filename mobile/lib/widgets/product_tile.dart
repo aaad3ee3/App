@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
+import 'smart_network_image.dart';
 import 'tap_scale.dart';
 
 /// One row in a product list. Shared by the category listing, search results and the
@@ -36,11 +37,7 @@ class ProductTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final image = product.image != null
-        ? Image.network(
-            product.image!,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _placeholder(context),
-          )
+        ? SmartNetworkImage(product.image!, errorBuilder: (_, _, _) => _placeholder(context))
         : _placeholder(context);
 
     return TapScale(

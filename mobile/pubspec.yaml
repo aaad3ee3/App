@@ -60,6 +60,10 @@ dependencies:
   # Declarative entrance/loop animations (`.animate().fadeIn()...`) for the balance chip,
   # promo banner, and tab switches — see the widgets that use it for why each was picked.
   flutter_animate: ^4.5.2
+  # Renders the SVG brand icons the catalog falls back to for platforms/categories neither
+  # supplier ships real art for (cdn.simpleicons.org — see SmartNetworkImage). Image.network
+  # cannot decode SVG at all, which is why those tiles showed no logo whatsoever before this.
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:

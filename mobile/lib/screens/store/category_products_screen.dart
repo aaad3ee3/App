@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/arabic_text.dart';
 import '../../widgets/product_grid_tile.dart';
 import '../../widgets/shimmer_box.dart';
+import '../../widgets/smart_network_image.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
 import 'social_topup_purchase_screen.dart';
@@ -239,6 +240,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                   product: products[index],
                   onTap: () => _openProduct(products[index]),
                   heroTag: 'product-image-${products[index].id}',
+                  fallbackImage: widget.category.image,
                   isFavorite: context.watch<AuthStore>().isGuest ? null : _favoriteIds.contains(products[index].id),
                   onToggleFavorite: context.watch<AuthStore>().isGuest
                       ? null
@@ -292,9 +294,8 @@ class _CategoryHero extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
+            SmartNetworkImage(
               imageUrl,
-              fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Container(color: AppColors.darkSurfaceHigh),
             ),
             // A bottom-up fade rather than a flat tint — keeps the photo readable at the
