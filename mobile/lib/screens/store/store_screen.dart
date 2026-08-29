@@ -461,25 +461,30 @@ class _PromoBannerState extends State<_PromoBanner> {
   // row (see _PromoSlide.image) — social_topup doesn't have one yet, so it keeps the
   // original text rotation. A kind's slides are never mixed between the two styles: the
   // banner picks one layout for the whole rotation based on the first slide (see build).
+  //
+  // The referral ("ادعُ صديق") slide was dropped from every rotation on request — it's
+  // still reachable from حسابي's own "ادعُ صديق" row, just not repeated here too. A
+  // single-slide list is a static banner, not a carousel: build() only wires up the
+  // auto-advance timer and page dots when there's more than one slide to rotate through.
   List<_PromoSlide> get _slides => switch (widget.kind) {
         'giftcard' => const [
             _PromoSlide.image('assets/banners/payment_methods.jpg'),
-            _PromoSlide.image('assets/banners/referral.jpg'),
           ],
         'social_topup' => const [
             _PromoSlide(title: 'شحن برامج البث المباشر', subtitle: 'أزال لايف، بارتي ستار، imo وغيرها — شحن مباشر لحسابك', icon: Icons.live_tv_rounded),
-            _PromoSlide(title: 'ادعُ صديق واكسب رصيد', subtitle: 'شارك كود الإحالة من حسابك واكسبوا رصيد مجاني سوا', icon: Icons.live_tv_rounded),
             _PromoSlide(title: 'شحن آمن وموثوق', subtitle: 'يبدأ التنفيذ تلقائياً بعد التأكيد', icon: Icons.live_tv_rounded),
           ],
         _ => const [
             _PromoSlide.image('assets/banners/rashq.jpg'),
-            _PromoSlide.image('assets/banners/referral.jpg'),
           ],
       };
 
   @override
   void initState() {
     super.initState();
+    // Nothing to rotate to with a single slide — a running timer that keeps
+    // "animating" to the same page is pointless work for no visible effect.
+    if (_slides.length <= 1) return;
     _timer = Timer.periodic(_interval, (_) {
       if (!mounted || !_controller.hasClients) return;
       final next = (_page + 1) % _slides.length;
@@ -602,8 +607,7 @@ class _PromoBannerState extends State<_PromoBanner> {
               child: AspectRatio(aspectRatio: 1.4, child: pageView),
             ),
           ),
-          const SizedBox(height: 8),
-          dots,
+          if (slides.length > 1) ...[const SizedBox(height: 8), dots],
         ],
       );
     }
@@ -623,8 +627,7 @@ class _PromoBannerState extends State<_PromoBanner> {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: 52, child: pageView),
-          const SizedBox(height: 8),
-          dots,
+          if (slides.length > 1) ...[const SizedBox(height: 8), dots],
         ],
       ),
     );

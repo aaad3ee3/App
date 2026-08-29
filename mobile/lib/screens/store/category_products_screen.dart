@@ -7,8 +7,9 @@ import '../../services/api_client.dart';
 import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
 import '../../services/favorites_service.dart';
+import '../../theme/app_theme.dart';
 import '../../utils/arabic_text.dart';
-import '../../widgets/product_tile.dart';
+import '../../widgets/product_grid_tile.dart';
 import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
 import 'smm_purchase_screen.dart';
@@ -132,17 +133,26 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.category.name)),
-      body: _loading
-          ? const ListRowSkeleton()
-          : _error != null
-              ? _ErrorState(message: _error!, onRetry: _load)
-              : Column(
-                  children: [
-                    // Hidden for short lists — a search box above four items is clutter.
-                    if (_products.length > 6) _buildControls(context),
-                    Expanded(child: _buildList()),
-                  ],
-                ),
+      body: Column(
+        children: [
+          // Only when the category actually has a real photo — an empty gradient box
+          // for the many categories that don't would just be dead space up top.
+          if (widget.category.image != null) _CategoryHero(imageUrl: widget.category.image!),
+          Expanded(
+            child: _loading
+                ? const ListRowSkeleton()
+                : _error != null
+                    ? _ErrorState(message: _error!, onRetry: _load)
+                    : Column(
+                        children: [
+                          // Hidden for short lists — a search box above four items is clutter.
+                          if (_products.length > 6) _buildControls(context),
+                          Expanded(child: _buildList()),
+                        ],
+                      ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -205,18 +215,27 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: AnimationLimiter(
-        child: ListView.separated(
+        child: GridView.builder(
           padding: const EdgeInsets.all(16),
+          // Taller than square (0.68) rather than matching the image's own 1:1 ratio —
+          // real product photos plus a name and price row need more vertical room than
+          // just the image, unlike a generic icon.
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.68,
+          ),
           itemCount: products.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+          itemBuilder: (context, index) => AnimationConfiguration.staggeredGrid(
             position: index,
             duration: const Duration(milliseconds: 380),
+            columnCount: 2,
             child: SlideAnimation(
               verticalOffset: 30,
               curve: Curves.easeOutCubic,
               child: FadeInAnimation(
-                child: ProductTile(
+                child: ProductGridTile(
                   product: products[index],
                   onTap: () => _openProduct(products[index]),
                   heroTag: 'product-image-${products[index].id}',
@@ -250,6 +269,48 @@ class _ErrorState extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
         ],
+      ),
+    );
+  }
+}
+
+/// The category's own cover photo as a short rounded-bottom strip above the grid — real
+/// art the store already has, not a generic banner, so this only renders when the
+/// category actually carries an image (see build() above).
+class _CategoryHero extends StatelessWidget {
+  const _CategoryHero({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 130,
+      width: double.infinity,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(color: AppColors.darkSurfaceHigh),
+            ),
+            // A bottom-up fade rather than a flat tint — keeps the photo readable at the
+            // top while still guaranteeing contrast for anything placed over the bottom
+            // edge (nothing today, but matches the treatment on the store's own banners).
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black38],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
