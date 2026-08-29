@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ResalaAccountExpiredError,
   ResalaApiError,
   ResalaAuthError,
   ResalaClient,
@@ -64,8 +65,16 @@ describe("ResalaClient.sendPin", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("maps 401 to ResalaAuthError", async () => {
+  it("maps 401 to ResalaAuthError even with no type field (status fallback)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, { message: "Unauthenticated" })));
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaAuthError);
+  });
+
+  it("maps type: TokenExpired to ResalaAuthError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(401, { status: 401, type: "TokenExpired", message: "Token expired" }))
+    );
     await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaAuthError);
   });
 
@@ -85,22 +94,43 @@ describe("ResalaClient.sendPin", () => {
     expect((err as ResalaValidationError).fieldErrors.phone).toEqual(["The phone field is required."]);
   });
 
-  it("maps a 400 credit message to ResalaInsufficientCreditError", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(400, { message: "Insufficient credit balance" })));
+  // Resala's own docs are explicit: branch on `type`, not the human-readable `message`
+  // text, since the wording can be reworded/translated without notice.
+  it("maps type: InsufficientCredit to ResalaInsufficientCreditError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(400, { status: 400, type: "InsufficientCredit", message: "لا يوجد رصيد كافٍ" })
+      )
+    );
     await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaInsufficientCreditError);
   });
 
-  it("does not misclassify an unrelated 400 as a credit error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(400, { message: "Invalid phone format" })));
+  it("maps type: AccountExpired to ResalaAccountExpiredError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(400, { status: 400, type: "AccountExpired", message: "الحساب منتهي" }))
+    );
+    await expect(client.sendPin("218910001234")).rejects.toThrow(ResalaAccountExpiredError);
+  });
+
+  it("does not misclassify an unrelated 400 (type: BadRequest) as a credit error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(400, { status: 400, type: "BadRequest", message: "Invalid phone format" }))
+    );
 
     const err = await client.sendPin("218910001234").catch((e) => e);
     expect(err).toBeInstanceOf(ResalaApiError);
     expect(err).not.toBeInstanceOf(ResalaInsufficientCreditError);
+    expect(err).not.toBeInstanceOf(ResalaAccountExpiredError);
   });
 });
 
 describe("ResalaClient.sendTemplateMessage", () => {
-  it("posts records to the templated endpoint with the template id in the query string", async () => {
+  it("posts a multipart/form-data body with a records field, not JSON", async () => {
+    // Resala's own docs: this endpoint requires multipart/form-data with `records` as a
+    // single JSON-stringified form field — a JSON body is silently rejected.
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { status: true }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -110,7 +140,11 @@ describe("ResalaClient.sendTemplateMessage", () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toContain("sms_template_id=11111111-1111-1111-1111-111111111111");
-    expect(JSON.parse(init.body)).toEqual({ records: [{ phone: "218910001234", $1: "value1" }] });
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.body.get("records")).toBe(JSON.stringify([{ phone: "218910001234", $1: "value1" }]));
+    // Content-Type must be left for fetch to set itself (with the multipart boundary) —
+    // an explicit "application/json" here would make Resala reject the request.
+    expect(init.headers["Content-Type"]).toBeUndefined();
   });
 
   it("never retries on a network failure", async () => {

@@ -90,6 +90,15 @@ export async function issueCode(phone: string, purpose: OtpPurpose): Promise<voi
       code = result.pin;
     } catch (err) {
       if (err instanceof ResalaApiError) {
+        // The customer only ever sees the generic message below — this is the only place
+        // the real reason (AccountExpired, InsufficientCredit, a validation error, ...) is
+        // recorded anywhere, so log it before converting to the generic HttpError or a
+        // delivery failure is completely undiagnosable from Render logs alone.
+        console.error("[otp] Resala sendPin failed", {
+          status: err.status,
+          type: (err.body as { type?: unknown })?.type,
+          message: err.message,
+        });
         throw new HttpError(502, "sms_delivery_failed", "تعذر إرسال رمز التحقق، حاول مرة أخرى بعد قليل.");
       }
       throw err;

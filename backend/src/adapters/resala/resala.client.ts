@@ -32,8 +32,11 @@ export class ResalaValidationError extends ResalaApiError {
   }
 }
 
-/** 400 whose message is about account credit — the wallet balance is insufficient. Never auto-retried. */
+/** 400, `type: "InsufficientCredit"` — the account's wallet balance is too low to send. Never auto-retried. */
 export class ResalaInsufficientCreditError extends ResalaApiError {}
+
+/** 400, `type: "AccountExpired"` — the Resala account/subscription itself has lapsed. */
+export class ResalaAccountExpiredError extends ResalaApiError {}
 
 export interface ResalaClientConfig {
   baseUrl: string;
@@ -104,11 +107,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** True for a 400 response whose message is specifically about insufficient account credit. */
-function isCreditError(status: number, body: unknown): boolean {
-  if (status !== 400) return false;
-  const message = typeof body === "object" && body !== null ? String((body as { message?: unknown }).message ?? "") : String(body ?? "");
-  return /credit|رصيد|الرصيد/i.test(message);
+/**
+ * Every Resala error body is `{status, type, message, request_id}`. Their own docs are
+ * explicit that `type` is the stable, machine-readable field to branch on — `message` is
+ * human-readable, translatable, and can be reworded without notice. Documented values:
+ * AccountExpired, InsufficientCredit, BadRequest (400s), Unauthorized/TokenExpired (401),
+ * Forbidden (403), NotFound (404), InputValidation (422).
+ */
+function getErrorType(body: unknown): string | undefined {
+  return typeof body === "object" && body !== null ? (body as { type?: unknown }).type as string | undefined : undefined;
 }
 
 export class ResalaClient {
@@ -132,13 +139,17 @@ export class ResalaClient {
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      // A FormData body (sendTemplateMessage) must NOT get an explicit Content-Type —
+      // fetch sets one itself with the correct multipart boundary, and overriding it here
+      // would strip the boundary and make Resala reject the request.
+      const isFormData = requestInit.body instanceof FormData;
       let response: Response;
       try {
         response = await fetch(url, {
           ...requestInit,
           headers: {
             Authorization: `Bearer ${this.config.apiToken}`,
-            "Content-Type": "application/json",
+            ...(isFormData ? {} : { "Content-Type": "application/json" }),
             Accept: "application/json",
             ...requestInit.headers,
           },
@@ -164,21 +175,28 @@ export class ResalaClient {
         return body as T;
       }
 
-      if (response.status === 401) {
+      const errorType = getErrorType(body);
+
+      // `type`-based checks first, per Resala's own docs — falls back to the HTTP status
+      // alone only for the (undocumented, shouldn't happen) case of a missing `type`.
+      if (errorType === "AccountExpired") {
+        throw new ResalaAccountExpiredError(response.status, body, "Resala account has expired — renew it in the Resala dashboard");
+      }
+      if (errorType === "InsufficientCredit") {
+        throw new ResalaInsufficientCreditError(response.status, body, "Resala account balance is insufficient to send this message");
+      }
+      if (errorType === "Unauthorized" || errorType === "TokenExpired" || response.status === 401) {
         throw new ResalaAuthError(401, body, "Resala rejected the request — check RESALA_API_TOKEN");
       }
-      if (response.status === 403) {
+      if (errorType === "Forbidden" || response.status === 403) {
         throw new ResalaPermissionError(403, body, "This Resala account does not have permission for this endpoint");
       }
-      if (response.status === 422) {
+      if (errorType === "InputValidation" || response.status === 422) {
         const fieldErrors = (typeof body === "object" && body !== null ? (body as { errors?: Record<string, string[]> }).errors : undefined) ?? {};
         const flat = Object.entries(fieldErrors)
           .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
           .join("; ");
         throw new ResalaValidationError(422, body, `Resala validation failed: ${flat || rawText}`, fieldErrors);
-      }
-      if (isCreditError(response.status, body)) {
-        throw new ResalaInsufficientCreditError(400, body, "Resala account balance is insufficient to send this message");
       }
       // A 5xx is retried the same as a network failure (GET only) — everything else
       // (other 4xx) fails immediately since retrying would not change the outcome.
@@ -233,11 +251,17 @@ export class ResalaClient {
    * passes `?test` here even outside production: Resala requires available free-message
    * quota for test mode on this endpoint and otherwise returns 400 — callers that want a
    * dry run should send to a small real recipient list instead.
+   *
+   * This endpoint is multipart/form-data, not JSON: `records` is a single form field
+   * holding the recipient array JSON-stringified as a string (confirmed against Resala's
+   * own Postman docs — a JSON body is silently rejected).
    */
   async sendTemplateMessage(templateId: string, records: ResalaTemplateRecord[]): Promise<unknown> {
+    const form = new FormData();
+    form.set("records", JSON.stringify(records));
     return this.request(`/messages/send-template?sms_template_id=${encodeURIComponent(templateId)}`, {
       method: "POST",
-      body: JSON.stringify({ records }),
+      body: form,
     });
   }
 
