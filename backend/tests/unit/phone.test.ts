@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLibyanaNumber, normalizeLibyanPhone, normalizeLibyanaPhone } from "../../src/lib/phone";
+import { isLibyanaNumber, normalizeLibyanPhone, normalizeLibyanaPhone, toInternationalLibyanPhone } from "../../src/lib/phone";
 
 /**
  * The carrier split is the kind of fact that is easy to get backwards and impossible to
@@ -53,6 +53,21 @@ describe("normalizeLibyanaPhone", () => {
     // be topped up or recovered.
     for (const madar of ["0911234567", "0931234567", "+218911234567", "00218931234567"]) {
       expect(normalizeLibyanaPhone(madar), madar).toBeNull();
+    }
+  });
+});
+
+describe("toInternationalLibyanPhone", () => {
+  it("converts the local form to country-code form with no leading zero", () => {
+    // Regression: Resala's /pins expects exactly this shape (e.g. "218921234567") — the
+    // local form doesn't error, it just silently never reaches a real handset.
+    expect(toInternationalLibyanPhone("0921234567")).toBe("218921234567");
+    expect(toInternationalLibyanPhone("0941234567")).toBe("218941234567");
+  });
+
+  it("rejects anything that isn't already a normalized local number", () => {
+    for (const bad of ["", "921234567", "+218921234567", "218921234567", "092123456", "09212345678"]) {
+      expect(toInternationalLibyanPhone(bad), bad).toBeNull();
     }
   });
 });

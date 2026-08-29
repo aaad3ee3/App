@@ -60,3 +60,17 @@ export function normalizeLibyanaPhone(raw: string): string | null {
   if (!normalized) return null;
   return isLibyanaNumber(normalized) ? normalized : null;
 }
+
+/**
+ * Converts the canonical local form (`0` + 9 digits, e.g. `0921234567`) to the
+ * international form some external providers require instead — country code, no leading
+ * zero (`218921234567`). Resala's `/pins` endpoint is the reason this exists: its docs
+ * specify exactly this shape, and sending it the local form silently mismatches (their
+ * API accepts the malformed request but the SMS never actually reaches the handset) —
+ * see otp.service.ts. Returns null for anything that isn't already a normalized local
+ * number, so a caller can't accidentally feed it unvalidated user input.
+ */
+export function toInternationalLibyanPhone(localNumber: string): string | null {
+  if (!/^0\d{9}$/.test(localNumber)) return null;
+  return `218${localNumber.slice(1)}`;
+}

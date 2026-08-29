@@ -4,6 +4,7 @@ import { env } from "../../config/env";
 import { sha256Hex } from "../../lib/crypto";
 import { getSmsSender } from "../../lib/sms-sender";
 import { HttpError } from "../../plugins/error-handler.plugin";
+import { toInternationalLibyanPhone } from "../../lib/phone";
 import { createResalaClientFromEnv, isResalaConfigured, ResalaApiError } from "../../adapters/resala/resala.client";
 
 export type OtpPurpose = "register" | "reset" | "link";
@@ -69,8 +70,18 @@ export async function issueCode(phone: string, purpose: OtpPurpose): Promise<voi
   const useResala = isResalaConfigured();
   let code: string;
   if (useResala) {
+    // Resala's /pins expects international form (218921234567), not the local form
+    // (0921234567) every caller of issueCode already normalized `phone` to — sending the
+    // local form doesn't error, it just never reaches a real handset. `phone` is always
+    // already a normalizeLibyanaPhone() result by the time it gets here (see
+    // auth.service.ts), so this conversion cannot fail in practice; the null case only
+    // guards against an internal misuse, not user input.
+    const internationalPhone = toInternationalLibyanPhone(phone);
+    if (!internationalPhone) {
+      throw new Error(`issueCode: phone "${phone}" is not a normalized local Libyan number`);
+    }
     try {
-      const result = await createResalaClientFromEnv().sendPin(phone, {
+      const result = await createResalaClientFromEnv().sendPin(internationalPhone, {
         // Real SMS/credit only in production — every other environment (dev, staging,
         // the test suite) must never actually send or get charged for one.
         test: env.NODE_ENV !== "production",
