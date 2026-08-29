@@ -17,9 +17,9 @@ import '../../utils/home_sections.dart';
 import '../../widgets/category_card.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
+import '../../widgets/floating_hero.dart';
 import '../../widgets/section_banner.dart';
 import '../../widgets/shimmer_box.dart';
-import '../../widgets/spotlight_carousel.dart';
 import '../../widgets/tap_scale.dart';
 import 'giftcard_purchase_screen.dart';
 import 'section_categories_screen.dart';
@@ -403,9 +403,9 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  /// The Home Dashboard layout: an auto-advancing spotlight of each section's own
-  /// top-stocked category, then one banner + top-3 grid + "عرض الكل" bar per non-empty
-  /// section — in place of the single flat grid every other store tab still uses.
+  /// The Home Dashboard layout: a floating hero of each section's own top-stocked
+  /// category, then one banner + top-3 grid + "عرض الكل" bar per non-empty section — in
+  /// place of the single flat grid every other store tab still uses.
   Widget _buildDashboardSections() {
     final sections = buildHomeSections(_categories);
     final spotlight = [
@@ -422,7 +422,7 @@ class _StoreScreenState extends State<StoreScreen> {
             if (index == 0) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
-                child: SpotlightCarousel(items: spotlight),
+                child: FloatingHero(items: spotlight),
               );
             }
             final sectionIndex = index - 1;
