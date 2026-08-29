@@ -21,9 +21,9 @@ class AppColors {
   /// and static, but the same low-chroma tone spread across buttons, balances and prices
   /// on a phone screen is exactly what read as "faded" — a real, verifiable complaint, not
   /// just taste. Kept in the same warm gold family, just with the chroma turned up.
-  static const Color gold = Color(0xFFD9A53B);
-  static const Color goldDark = Color(0xFFB8822A);
-  static const Color goldLight = Color(0xFFF0C468);
+  static const Color gold = Color(0xFFFFB800);
+  static const Color goldDark = Color(0xFFD99B00);
+  static const Color goldLight = Color(0xFFFFCB4D);
 
   /// The mark's background field.
   static const Color cream = Color(0xFFF7E8CF);
