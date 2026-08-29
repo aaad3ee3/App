@@ -1,0 +1,50 @@
+name: Deploy Web Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/app-plan-4fv8ik
+    paths:
+      - "mobile/**"
+      - ".github/workflows/deploy-web-preview.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      # --base-href matches this repo's GitHub Pages project-site path
+      # (https://<owner>.github.io/<repo>/) — without it every asset request 404s.
+      - name: Build web release
+        working-directory: mobile
+        run: flutter build web --release --base-href /App/ --dart-define=API_BASE_URL=https://sayeh-api.onrender.com
+
+      # Push straight to gh-pages rather than using actions/deploy-pages: that action
+      # needs the repo's Pages feature already turned on (a one-time manual toggle in
+      # Settings) and a pages:write permission this token isn't granted — a plain branch
+      # push works the moment Pages is set to "Deploy from branch: gh-pages".
+      - name: Publish to gh-pages branch
+        run: |
+          mkdir /tmp/web-deploy
+          cp -r mobile/build/web/. /tmp/web-deploy/
+          cd /tmp/web-deploy
+          git init -q -b gh-pages
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add -A
+          git commit -q -m "Web preview from ${{ github.sha }}"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin gh-pages
