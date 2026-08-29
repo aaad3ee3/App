@@ -49,9 +49,13 @@ class AppColors {
   static const Color infoBg = Color(0xFFEAF0F9);
 
   // --- Dark mode -----------------------------------------------------------------
-  static const Color darkBackground = Color(0xFF141C2B);
-  static const Color darkSurface = Color(0xFF1E2A3F);
-  static const Color darkBorder = Color(0xFF2F3D57);
+  // Neutral near-black rather than navy-tinted — a genuine "premium OLED" dark reads
+  // as more expensive than a dark navy wash, and lets the gold accent and the top
+  // ambient glow actually stand out instead of blending into a same-hue background.
+  static const Color darkBackground = Color(0xFF131315);
+  static const Color darkSurface = Color(0xFF1E1E22);
+  static const Color darkSurfaceHigh = Color(0xFF29292E);
+  static const Color darkBorder = Color(0xFF303035);
   static const Color darkTextPrimary = Color(0xFFF3EFE8);
   static const Color darkTextSecondary = Color(0xFFA8B2C4);
 }
@@ -154,7 +158,7 @@ class AppTheme {
       onSecondaryContainer: AppColors.cream,
       surface: AppColors.darkSurface,
       onSurface: AppColors.darkTextPrimary,
-      surfaceContainerHighest: Color(0xFF26344C),
+      surfaceContainerHighest: AppColors.darkSurfaceHigh,
       onSurfaceVariant: AppColors.darkTextSecondary,
       outline: AppColors.darkBorder,
       error: Color(0xFFEF7A7A),
@@ -199,7 +203,7 @@ class AppTheme {
         ),
       ),
       inputDecorationTheme: _inputTheme(
-        fill: const Color(0xFF26344C),
+        fill: AppColors.darkSurfaceHigh,
         border: AppColors.darkBorder,
         focused: AppColors.goldLight,
       ),

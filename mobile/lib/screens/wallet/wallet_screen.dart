@@ -130,7 +130,7 @@ class _WalletScreenState extends State<WalletScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: Text('لا توجد حركات بعد', style: TextStyle(color: Colors.grey.shade600)),
+                child: Text('لا توجد حركات بعد', style: TextStyle(color: AppColors.textSecondary)),
               ),
             )
           else ...[
@@ -161,82 +161,114 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.navy, AppColors.navyDark],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withValues(alpha: 0.22),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.navy, AppColors.navyDark],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
           ),
-        ],
-      ),
-      // Deliberately undecorated. A low-alpha gold flourish was tried here and read as a
-      // grey smudge — warm colours lose their chroma at low opacity over dark navy — so
-      // the gold now appears only where it means something: the amount's currency and
-      // the top-up action.
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'رصيد المحفظة',
-                style: TextStyle(color: AppColors.cream.withValues(alpha: 0.82), fontSize: 14),
-              ),
-              const Spacer(),
-              const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 20),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text(
-                balance?.amount.toStringAsFixed(2) ?? '0.00',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                balance?.currency ?? 'LYD',
-                style: const TextStyle(
-                  color: AppColors.goldLight,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onTopupPressed,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('شحن الرصيد'),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.navy.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Two soft glows in opposite corners — the same technique behind the
+            // top-of-screen ambient glow, scaled down onto a single card. Gold rather
+            // than a low-alpha neutral tone: a grey/white glow over navy read as a
+            // smudge in testing, gold keeps its color even faint.
+            Positioned(
+              top: -40,
+              right: -30,
+              child: _glowBlob(120, 0.14),
+            ),
+            Positioned(
+              bottom: -50,
+              left: -40,
+              child: _glowBlob(150, 0.10),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'رصيد المحفظة',
+                      style: TextStyle(color: AppColors.cream.withValues(alpha: 0.82), fontSize: 14),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 20),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  textBaseline: TextBaseline.alphabetic,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  children: [
+                    Text(
+                      balance?.amount.toStringAsFixed(2) ?? '0.00',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 38,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                        shadows: [Shadow(color: AppColors.gold.withValues(alpha: 0.45), blurRadius: 18)],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      balance?.currency ?? 'LYD',
+                      style: const TextStyle(
+                        color: AppColors.goldLight,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.35), blurRadius: 18, spreadRadius: 1)],
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onTopupPressed,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.gold,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('شحن الرصيد'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _glowBlob(double size, double alpha) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [AppColors.gold.withValues(alpha: alpha), AppColors.gold.withValues(alpha: 0)]),
+        ),
+      );
 }
 
 class _PendingTopupBanner extends StatelessWidget {

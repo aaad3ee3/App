@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ambient_glow.dart';
+import '../widgets/floating_nav_bar.dart';
 import '../widgets/sayeh_logo.dart';
 import '../widgets/sign_in_gate.dart';
 import 'profile_screen.dart';
@@ -155,16 +156,19 @@ class _HomeShellState extends State<HomeShell> {
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(28), boxShadow: AppTheme.cardShadow),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
-            child: NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
-              destinations: const [
-                NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'المتجر'),
-                NavigationDestination(icon: Icon(Icons.trending_up_rounded), selectedIcon: Icon(Icons.trending_up_rounded), label: 'الرشق'),
-                NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'طلباتي'),
-                NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
-                NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),
-              ],
+            child: ColoredBox(
+              color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurfaceHigh : AppColors.surface,
+              child: FloatingNavBar(
+                selectedIndex: _index,
+                onSelect: (i) => setState(() => _index = i),
+                items: const [
+                  NavItem(icon: Icons.storefront_outlined, selectedIcon: Icons.storefront, label: 'المتجر'),
+                  NavItem(icon: Icons.trending_up_rounded, selectedIcon: Icons.trending_up_rounded, label: 'الرشق'),
+                  NavItem(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'طلباتي'),
+                  NavItem(icon: Icons.account_balance_wallet_outlined, selectedIcon: Icons.account_balance_wallet, label: 'المحفظة'),
+                  NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'حسابي'),
+                ],
+              ),
             ),
           ),
         ),
