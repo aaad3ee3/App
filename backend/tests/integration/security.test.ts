@@ -1,8 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app";
+import { env } from "../../src/config/env";
 import { db } from "../../src/db/knex";
-import { createTestCategory, createTestProduct, createTestSession, createTestUser, creditTestWallet, resetDb } from "../helpers";
+import { hmacSha256Hex } from "../../src/lib/crypto";
+import {
+  createPendingTopup,
+  createTestCategory,
+  createTestProduct,
+  createTestSession,
+  createTestUser,
+  creditTestWallet,
+  libyanaSmsText,
+  resetDb,
+} from "../helpers";
 
 /**
  * These are regression tests for security properties that are easy to break silently.
@@ -182,6 +193,39 @@ describe("security", () => {
       payload: { sender: "Libyana", text: "تم تحويل 50 دينار" },
     });
     expect(badSignature.statusCode).toBe(401);
+  });
+
+  it("matches a top-up from the real 'SMS Gateway for Android' webhook payload shape", async () => {
+    // Regression: that app's actual sms:received payload nests the phone/text under
+    // `payload` — {event, payload: {phoneNumber, message, ...}} — not the flat
+    // sender/text shape used elsewhere in this file. A signature-valid delivery in that
+    // real shape must still resolve to a match, not silently fall through with an empty
+    // rawText because the route only read the flat fields.
+    app = await buildTestApp();
+    const { user } = await createTestUser();
+    await createPendingTopup({ userId: user.id, senderPhone: "0912345678", requestedAmount: 50 });
+
+    const rawBody = JSON.stringify({
+      event: "sms:received",
+      payload: {
+        messageId: "msg_12345abcde",
+        message: libyanaSmsText(50, "0912345678"),
+        phoneNumber: "Libyana",
+        simNumber: 1,
+        receivedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+    const signature = hmacSha256Hex(env.SMS_WEBHOOK_HMAC_SECRET, rawBody);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/webhooks/sms/libyana",
+      headers: { "content-type": "application/json", "x-signature": signature },
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().match_status).toBe("matched");
   });
 
   it("sets defensive security headers on API responses", async () => {
