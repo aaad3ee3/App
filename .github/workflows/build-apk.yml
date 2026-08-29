@@ -31,24 +31,22 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
-      - name: Build release APK (split per ABI — the universal APK is too large to hand-deliver)
+      - name: Build release APK
         working-directory: mobile
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
         with:
           name: sayeh-app
-          path: mobile/build/app/outputs/flutter-apk/*.apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
 
-      # Also publish the arm64 APK (covers the vast majority of real devices, including the
-      # tester's own phone) to a dedicated branch so it can be fetched over plain git instead
-      # of the Actions artifact API — some networks can reach github.com but not the artifact
-      # storage CDN it redirects downloads to. The split build is small enough to hand-deliver
-      # directly to the user in chat, unlike the ~57MB universal APK.
+      # Also publish the APK to a dedicated branch (force-pushed, single commit) so it can
+      # be fetched over plain git instead of the Actions artifact API — some networks can
+      # reach github.com but not the artifact storage CDN it redirects downloads to.
       - name: Publish APK to apk-latest branch
         run: |
           mkdir /tmp/apk-branch
-          cp mobile/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk /tmp/apk-branch/app-release.apk
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk /tmp/apk-branch/app-release.apk
           cd /tmp/apk-branch
           git init -q -b apk-latest
           git config user.email "actions@github.com"
