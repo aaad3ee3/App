@@ -40,9 +40,15 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         value: https://sayeh-api.onrender.com
-      # اختياري: اتركها فاضية الآن. بدون SMS_GATEWAY_URL ترمز التحقق تُطبع في سجل Render
-      # بدل ما تُرسل فعلياً — مقبول لتجربة مع أصدقاء تعرفهم، مرفوض قبل إطلاق حقيقي.
+      # اختياري: اتركها فاضية الآن. بدون SMS_GATEWAY_URL ولا RESALA_API_TOKEN، رمز التحقق
+      # يُطبع في سجل Render بدل ما يُرسل فعلياً — مقبول لتجربة مع أصدقاء تعرفهم، مرفوض
+      # قبل إطلاق حقيقي.
       - key: SMS_GATEWAY_URL
+        sync: false
+      # رسالة (Resala) — مزوّد SMS/OTP حقيقي لأرقام ليبيا. لو حطيته، يتفعّل تلقائياً بدل
+      # SMS_GATEWAY_URL أعلاه لرموز التحقق تحديداً (تسجيل، ربط رقم، استعادة كلمة سر).
+      # التوكن يجيك من لوحة تحكم Resala.
+      - key: RESALA_API_TOKEN
         sync: false
       # Render يحط NODE_ENV=production تلقائياً، وفحص الأمان بالكود يرفض يشتغل بدون
       # SMS_GATEWAY_URL في بيئة إنتاج ما لم يوافق المشغّل صراحة على هذا. لازم تحذفه أو

@@ -18,46 +18,53 @@ interface BrandHint {
   color: string;
 }
 
+// Keyword matching is case-insensitive (see matchBrandIcon), so English keywords below
+// are written lowercase purely for readability — they'd match any casing regardless.
 const BRAND_HINTS: BrandHint[] = [
-  { keywords: ["نتفلكس"], slug: "netflix", color: "E50914" },
-  { keywords: ["بلايستيشن", "بلاي ستيشن"], slug: "playstation", color: "0070D1" },
-  { keywords: ["اكس بوكس", "إكس بوكس"], slug: "xbox", color: "107C10" },
-  { keywords: ["ستيم"], slug: "steam", color: "1B2838" },
-  { keywords: ["ايتونز", "آيتونز", "أيتونز"], slug: "itunes", color: "FB5BC5" },
-  { keywords: ["أمازون", "امازون"], slug: "amazon", color: "FF9900" },
-  { keywords: ["نينتيندو", "ننتيندو"], slug: "nintendoswitch", color: "E60012" },
-  { keywords: ["روبلوكس"], slug: "roblox", color: "000000" },
-  { keywords: ["USDT", "بينانس", "بينايس"], slug: "tether", color: "26A17B" },
-  { keywords: ["ماين كرافت", "ماينكرافت"], slug: "minecraft", color: "62B47A" },
-  { keywords: ["هواوي"], slug: "huawei", color: "FF0000" },
-  { keywords: ["فالورانت", "فالورنت"], slug: "valorant", color: "FF4655" },
-  { keywords: ["ريزر"], slug: "razer", color: "44D62C" },
+  { keywords: ["نتفلكس", "netflix"], slug: "netflix", color: "E50914" },
+  { keywords: ["بلايستيشن", "بلاي ستيشن", "playstation", "psn"], slug: "playstation", color: "0070D1" },
+  // Confirmed real gap: Libya Play (and most Libyan resellers) often keep Western brand
+  // names in Latin script even inside an otherwise-Arabic category list — "Xbox" plain,
+  // not "اكس بوكس" — so an Arabic-only keyword list silently missed exactly these.
+  { keywords: ["اكس بوكس", "إكس بوكس", "xbox"], slug: "xbox", color: "107C10" },
+  { keywords: ["ستيم", "steam"], slug: "steam", color: "1B2838" },
+  // "apple" deliberately excluded — too broad, would shadow the later, more specific
+  // Apple Music entry (e.g. a literal "Apple Music" category would wrongly hit this first).
+  { keywords: ["ايتونز", "آيتونز", "أيتونز", "itunes"], slug: "itunes", color: "FB5BC5" },
+  { keywords: ["أمازون", "امازون", "amazon"], slug: "amazon", color: "FF9900" },
+  { keywords: ["نينتيندو", "ننتيندو", "nintendo"], slug: "nintendoswitch", color: "E60012" },
+  { keywords: ["روبلوكس", "roblox"], slug: "roblox", color: "000000" },
+  { keywords: ["USDT", "بينانس", "بينايس", "binance"], slug: "tether", color: "26A17B" },
+  { keywords: ["ماين كرافت", "ماينكرافت", "minecraft"], slug: "minecraft", color: "62B47A" },
+  { keywords: ["هواوي", "huawei"], slug: "huawei", color: "FF0000" },
+  { keywords: ["فالورانت", "فالورنت", "valorant"], slug: "valorant", color: "FF4655" },
+  { keywords: ["ريزر", "razer"], slug: "razer", color: "44D62C" },
   // Batch below confirmed the same way — a real Simple Icons slug looked up against
   // their published list, not guessed — after the customer complaint that too many
   // categories showed no logo at all.
-  { keywords: ["جوجل بلاي", "قوقل بلاي"], slug: "googleplay", color: "01875F" },
-  { keywords: ["سبوتيفاي"], slug: "spotify", color: "1DB954" },
-  { keywords: ["إيبك جيمز", "ايبك جيمز", "إبيك جيمز"], slug: "epicgames", color: "313131" },
-  { keywords: ["أوريجن", "اوريجن", "إي ايه سبورتس", "اي ايه سبورتس"], slug: "ea", color: "000000" },
-  { keywords: ["يوبيسوفت", "يوبي سوفت"], slug: "ubisoft", color: "000000" },
-  { keywords: ["كرانشي رول", "كرانش رول"], slug: "crunchyroll", color: "F47521" },
-  { keywords: ["ليج أوف ليجيندز", "ليق اوف ليجيندز", "ريوت بوينتس", "ريوت"], slug: "leagueoflegends", color: "C28F2C" },
-  { keywords: ["باتل نت", "بليزرد"], slug: "battledotnet", color: "148EFF" },
-  { keywords: ["فورتنايت", "فورت نايت"], slug: "fortnite", color: "000000" },
-  { keywords: ["ببجي"], slug: "pubg", color: "F2A900" },
-  { keywords: ["كول أوف ديوتي", "كول اوف ديوتي", "كود موبايل"], slug: "callofduty", color: "000000" },
-  { keywords: ["جينشين امباكت", "جينشن امباكت", "جينشين إمباكت"], slug: "genshinimpact", color: "1F8FCD" },
-  { keywords: ["كونتر سترايك", "كاونتر سترايك", "سي اس جو"], slug: "counterstrike", color: "F2A900" },
-  { keywords: ["أوبر", "اوبر"], slug: "uber", color: "000000" },
+  { keywords: ["جوجل بلاي", "قوقل بلاي", "google play"], slug: "googleplay", color: "01875F" },
+  { keywords: ["سبوتيفاي", "spotify"], slug: "spotify", color: "1DB954" },
+  { keywords: ["إيبك جيمز", "ايبك جيمز", "إبيك جيمز", "epic games"], slug: "epicgames", color: "313131" },
+  { keywords: ["أوريجن", "اوريجن", "إي ايه سبورتس", "اي ايه سبورتس", "origin", "ea sports"], slug: "ea", color: "000000" },
+  { keywords: ["يوبيسوفت", "يوبي سوفت", "ubisoft"], slug: "ubisoft", color: "000000" },
+  { keywords: ["كرانشي رول", "كرانش رول", "crunchyroll"], slug: "crunchyroll", color: "F47521" },
+  { keywords: ["ليج أوف ليجيندز", "ليق اوف ليجيندز", "ريوت بوينتس", "ريوت", "league of legends", "riot"], slug: "leagueoflegends", color: "C28F2C" },
+  { keywords: ["باتل نت", "بليزرد", "battle.net", "blizzard"], slug: "battledotnet", color: "148EFF" },
+  { keywords: ["فورتنايت", "فورت نايت", "fortnite"], slug: "fortnite", color: "000000" },
+  { keywords: ["ببجي", "pubg"], slug: "pubg", color: "F2A900" },
+  { keywords: ["كول أوف ديوتي", "كول اوف ديوتي", "كود موبايل", "call of duty"], slug: "callofduty", color: "000000" },
+  { keywords: ["جينشين امباكت", "جينشن امباكت", "جينشين إمباكت", "genshin"], slug: "genshinimpact", color: "1F8FCD" },
+  { keywords: ["كونتر سترايك", "كاونتر سترايك", "سي اس جو", "counter strike", "csgo"], slug: "counterstrike", color: "F2A900" },
+  { keywords: ["أوبر", "اوبر", "uber"], slug: "uber", color: "000000" },
   // Second batch — same "real Simple Icons slug, checked against their published list"
   // rule, added after a customer complaint that most category tiles still show no logo
   // (digital-goods/subscription categories weren't covered by the first batch at all).
-  { keywords: ["تيك توك", "تيكتوك"], slug: "tiktok", color: "000000" },
-  { keywords: ["سناب شات", "سناب"], slug: "snapchat", color: "FFFC00" },
-  { keywords: ["يوتيوب"], slug: "youtube", color: "FF0000" },
-  { keywords: ["ديسكورد", "دسكورد"], slug: "discord", color: "5865F2" },
-  { keywords: ["تويتش"], slug: "twitch", color: "9146FF" },
-  { keywords: ["أبل ميوزيك", "ابل ميوزيك", "آبل ميوزيك"], slug: "applemusic", color: "FA243C" },
+  { keywords: ["تيك توك", "تيكتوك", "tiktok"], slug: "tiktok", color: "000000" },
+  { keywords: ["سناب شات", "سناب", "snapchat"], slug: "snapchat", color: "FFFC00" },
+  { keywords: ["يوتيوب", "youtube"], slug: "youtube", color: "FF0000" },
+  { keywords: ["ديسكورد", "دسكورد", "discord"], slug: "discord", color: "5865F2" },
+  { keywords: ["تويتش", "twitch"], slug: "twitch", color: "9146FF" },
+  { keywords: ["أبل ميوزيك", "ابل ميوزيك", "آبل ميوزيك", "apple music"], slug: "applemusic", color: "FA243C" },
   { keywords: ["أتش بي أو ماكس", "اتش بي او ماكس", "HBO Max", "ماكس"], slug: "hbomax", color: "002BE7" },
   { keywords: ["نورد في بي ان", "نورد في بي إن", "NordVPN"], slug: "nordvpn", color: "4687FF" },
   { keywords: ["إكسبرس في بي إن", "اكسبرس في بي ان", "ExpressVPN"], slug: "expressvpn", color: "DA3940" },
@@ -74,8 +81,12 @@ const BRAND_HINTS: BrandHint[] = [
 ];
 
 export function matchBrandIcon(categoryName: string): string | null {
+  // Case-insensitive: Libya Play sends some Western brand names in Latin script with
+  // inconsistent casing ("Xbox", "XBOX", "xbox"), and Arabic text is unaffected by
+  // lowercasing either way, so this is a strict improvement for every keyword above.
+  const normalized = categoryName.toLowerCase();
   for (const hint of BRAND_HINTS) {
-    if (hint.keywords.some((kw) => categoryName.includes(kw))) {
+    if (hint.keywords.some((kw) => normalized.includes(kw.toLowerCase()))) {
       return `https://cdn.simpleicons.org/${hint.slug}/${hint.color}`;
     }
   }

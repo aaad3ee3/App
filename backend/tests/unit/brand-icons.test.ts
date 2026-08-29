@@ -24,6 +24,20 @@ describe("matchBrandIcon", () => {
     expect(matchBrandIcon("اشتراك يوديمي")).toBe("https://cdn.simpleicons.org/udemy/A435F0");
   });
 
+  it("matches English/Latin-script brand names, case-insensitively", () => {
+    // Regression: a real customer report — the "Xbox" category showed no logo at all
+    // because Libya Play sent it in Latin script, and the keyword list was Arabic-only.
+    expect(matchBrandIcon("Xbox")).toBe("https://cdn.simpleicons.org/xbox/107C10");
+    expect(matchBrandIcon("XBOX Game Pass")).toBe("https://cdn.simpleicons.org/xbox/107C10");
+    expect(matchBrandIcon("PlayStation Store")).toBe("https://cdn.simpleicons.org/playstation/0070D1");
+    expect(matchBrandIcon("Steam Wallet")).toBe("https://cdn.simpleicons.org/steam/1B2838");
+  });
+
+  it("does not let the broad iTunes/Apple entry shadow the more specific Apple Music one", () => {
+    expect(matchBrandIcon("Apple Music")).toBe("https://cdn.simpleicons.org/applemusic/FA243C");
+    expect(matchBrandIcon("iTunes")).toBe("https://cdn.simpleicons.org/itunes/FB5BC5");
+  });
+
   it("returns null for unrecognized or regional names rather than guessing", () => {
     expect(matchBrandIcon("مملكة الصحراء")).toBeNull();
     expect(matchBrandIcon("بطاقات الألعاب")).toBeNull();

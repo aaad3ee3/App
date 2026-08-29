@@ -27,13 +27,15 @@ class _HomeShellState extends State<HomeShell> {
   // in front of the product — a customer opens this app to buy something, not to look at
   // a balance. Orders get their own tab for the same reason they do in every store app:
   // "where is my code" is the single most repeated question, and it was buried two taps
-  // deep inside the profile.
-  static const _titles = ['المتجر', 'طلباتي', 'المحفظة', 'حسابي'];
+  // deep inside the profile. الرشق gets promoted to its own tab, right after المتجر —
+  // it was a segment buried inside the store screen, easy to miss entirely.
+  static const _titles = ['المتجر', 'الرشق', 'طلباتي', 'المحفظة', 'حسابي'];
 
   // The store is the one tab a visitor gets in full — everything else is about *their*
   // money and *their* orders, which needs an account to even mean anything.
   static const _pages = [
-    StoreScreen(),
+    StoreScreen(kinds: ['giftcard', 'social_topup']),
+    StoreScreen(kinds: ['smm'], initialKind: 'smm'),
     RequiresAccount(
       gate: SignInGate(
         icon: Icons.receipt_long_rounded,
@@ -127,6 +129,7 @@ class _HomeShellState extends State<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.storefront_outlined), selectedIcon: Icon(Icons.storefront), label: 'المتجر'),
+          NavigationDestination(icon: Icon(Icons.trending_up_rounded), selectedIcon: Icon(Icons.trending_up_rounded), label: 'الرشق'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'طلباتي'),
           NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'المحفظة'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),

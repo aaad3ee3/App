@@ -28,11 +28,27 @@ IconData _kindIcon(String kind) => switch (kind) {
     };
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key});
+  const StoreScreen({
+    super.key,
+    this.kinds = const ['giftcard', 'smm', 'social_topup'],
+    this.initialKind = 'giftcard',
+  });
+
+  /// Which store kinds this instance switches between — a single-entry list hides the
+  /// segmented control entirely, letting الرشق live as its own bottom-nav tab (see
+  /// home_shell.dart) rather than a segment buried inside المتجر.
+  final List<String> kinds;
+  final String initialKind;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
+
+const _kindLabels = {
+  'giftcard': 'بطاقات الألعاب',
+  'smm': 'الرشق',
+  'social_topup': 'شحن بث',
+};
 
 class _StoreScreenState extends State<StoreScreen> {
   /// Long enough that a customer typing a word does not fire a request per letter, short
@@ -46,7 +62,7 @@ class _StoreScreenState extends State<StoreScreen> {
   final _searchController = TextEditingController();
   Timer? _debounceTimer;
 
-  String _kind = 'giftcard';
+  late String _kind = widget.initialKind;
   List<StoreCategory> _categories = [];
   bool _loading = true;
   String? _error;
@@ -214,18 +230,20 @@ class _StoreScreenState extends State<StoreScreen> {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'giftcard', label: Text('بطاقات الألعاب'), icon: Icon(Icons.videogame_asset_outlined)),
-                  ButtonSegment(value: 'smm', label: Text('الرشق'), icon: Icon(Icons.trending_up_rounded)),
-                  ButtonSegment(value: 'social_topup', label: Text('شحن بث'), icon: Icon(Icons.live_tv_rounded)),
-                ],
-                selected: {_kind},
-                onSelectionChanged: (s) => _switchKind(s.first),
+            // Hidden when this instance only ever shows one kind (see the standalone
+            // الرشق tab in home_shell.dart) — a segmented control with a single option
+            // has nothing to switch between.
+            if (widget.kinds.length > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: SegmentedButton<String>(
+                  segments: widget.kinds
+                      .map((k) => ButtonSegment(value: k, label: Text(_kindLabels[k] ?? k), icon: Icon(_kindIcon(k))))
+                      .toList(),
+                  selected: {_kind},
+                  onSelectionChanged: (s) => _switchKind(s.first),
+                ),
               ),
-            ),
             // Only shown on the browse view — a banner above a search results list reads as
             // noise between the customer and the thing they're actively looking for.
             if (!_isSearching)
@@ -256,7 +274,6 @@ class _StoreScreenState extends State<StoreScreen> {
         if (_walletBalance != null)
           Positioned(
             left: 16,
-            right: 16,
             bottom: 14,
             child: _FloatingBalanceChip(balance: _walletBalance!, onTopUp: _goToTopup),
           ),
@@ -565,36 +582,37 @@ class _FloatingBalanceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Small and sized to its content — not a bar stretching edge to edge. Only left+bottom
+    // are given in the Positioned above, so this Row must never rely on Expanded (an
+    // unconstrained-width parent) — mainAxisSize.min keeps it hugging its own content.
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+      padding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.navy,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(color: AppColors.navy.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 6)),
+          BoxShadow(color: AppColors.navy.withValues(alpha: 0.32), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'رصيدك: ${balance.amount.toStringAsFixed(2)} ${balance.currency}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
-            ),
+          const Icon(Icons.account_balance_wallet_rounded, color: AppColors.goldLight, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            '${balance.amount.toStringAsFixed(2)} ${balance.currency}',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
           ),
+          const SizedBox(width: 6),
           TapScale(
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               onTap: onTopUp,
               child: Container(
-                width: 36,
-                height: 36,
+                width: 26,
+                height: 26,
                 decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
-                child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                child: const Icon(Icons.add_rounded, color: Colors.white, size: 16),
               ),
             ),
           ),
