@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ requires this at runtime before a notification can be shown at all —
+         firebase_messaging's own manifest merges it in too, but declared here explicitly
+         so it's visible without having to know that. PushService.registerDevice() is what
+         actually prompts for it, after sign-in. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="sayeh"
         android:name="${applicationName}"

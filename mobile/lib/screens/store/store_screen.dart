@@ -60,7 +60,13 @@ class _StoreScreenState extends State<StoreScreen> {
 
   late final CatalogService _catalogService;
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   Timer? _debounceTimer;
+
+  // Collapsed by default: a full-width bar sitting under the title before there is
+  // anything to search reads as bare next to a competitor's compact search icon. Starts
+  // open only if a query is already live (e.g. returning to this tab mid-search).
+  bool _searchOpen = false;
 
   late String _kind = widget.initialKind;
   List<StoreCategory> _categories = [];
@@ -111,7 +117,20 @@ class _StoreScreenState extends State<StoreScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    // Requested after the field actually exists in the tree — a focus request on the
+    // same frame it's built would be a no-op.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _searchFocusNode.requestFocus());
+  }
+
+  void _closeSearch() {
+    setState(() => _searchOpen = false);
+    _clearSearch();
   }
 
   Future<void> _load() async {
@@ -210,24 +229,39 @@ class _StoreScreenState extends State<StoreScreen> {
       children: [
         Column(
           children: [
+            // Collapsed to a small icon by default — a full-width bar left open with
+            // nothing typed in it is dead space above the grid on every visit. Since the
+            // app is RTL, the icon being the last child in this Row is what puts it on the
+            // physical left edge, not a directional property on the Row itself.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onQueryChanged,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'ابحث عن بطاقة أو خدمة…',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                          tooltip: 'مسح',
-                          onPressed: _clearSearch,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  if (_searchOpen)
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        onChanged: _onQueryChanged,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'ابحث عن بطاقة أو خدمة…',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
-                ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: _searchOpen ? 'إغلاق البحث' : 'بحث',
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _searchOpen ? _closeSearch : _openSearch,
+                    icon: Icon(_searchOpen ? Icons.close_rounded : Icons.search_rounded),
+                  ),
+                ],
               ),
             ),
             // Hidden when this instance only ever shows one kind (see the standalone
