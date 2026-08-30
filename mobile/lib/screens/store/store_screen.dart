@@ -13,6 +13,7 @@ import '../../services/auth_store.dart';
 import '../../services/catalog_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/featured_brands.dart';
 import '../../utils/home_sections.dart';
 import '../../utils/refresh_controller.dart';
 import '../../widgets/category_card.dart';
@@ -440,14 +441,13 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  /// The Home Dashboard layout: a floating hero of each section's own top-stocked
-  /// category, then one banner + top-3 grid + "عرض الكل" bar per non-empty section — in
-  /// place of the single flat grid every other store tab still uses.
+  /// The Home Dashboard layout: a floating hero of three specific featured brands
+  /// (PlayStation/PUBG/Xbox — see featured_brands.dart), then one banner + top-3 grid +
+  /// "عرض الكل" bar per non-empty section — in place of the single flat grid every other
+  /// store tab still uses.
   Widget _buildDashboardSections() {
     final sections = buildHomeSections(_categories);
-    final spotlight = [
-      for (final data in sections) SpotlightItem(section: data.section, category: data.categories.first),
-    ];
+    final featured = pickFeaturedCategories(_categories);
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -459,7 +459,7 @@ class _StoreScreenState extends State<StoreScreen> {
             if (index == 0) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
-                child: FloatingHero(items: spotlight),
+                child: FloatingHero(items: featured),
               );
             }
             final sectionIndex = index - 1;
