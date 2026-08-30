@@ -11,6 +11,7 @@ import '../../services/catalog_service.dart';
 import '../../services/orders_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/money.dart';
+import '../../utils/refresh_controller.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/shimmer_box.dart';
 import 'giftcard_purchase_screen.dart';
@@ -24,12 +25,18 @@ IconData _orderKindIcon(String kind) => switch (kind) {
     };
 
 class OrdersHistoryScreen extends StatefulWidget {
-  const OrdersHistoryScreen({super.key, this.embedded = false});
+  const OrdersHistoryScreen({super.key, this.embedded = false, this.refreshController});
 
   /// True when shown as a tab inside HomeShell, which already supplies the Scaffold and
   /// the app bar. Pushed as its own route (from the profile screen) it needs both, hence
   /// the flag rather than two near-identical widgets.
   final bool embedded;
+
+  /// See [RefreshController] — lets home_shell reload this tab's list when it's
+  /// reselected, since HomeShell keeps it alive in an IndexedStack instead of rebuilding it
+  /// (so a purchase made from a different tab would otherwise never show up here without
+  /// this — the order looks like it silently vanished even though it went through).
+  final RefreshController? refreshController;
 
   @override
   State<OrdersHistoryScreen> createState() => _OrdersHistoryScreenState();
@@ -45,7 +52,14 @@ class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
   void initState() {
     super.initState();
     _ordersService = OrdersService(context.read<AuthStore>().api);
+    widget.refreshController?.attach(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refreshController?.detach(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

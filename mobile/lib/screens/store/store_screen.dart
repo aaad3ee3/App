@@ -14,6 +14,7 @@ import '../../services/catalog_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/home_sections.dart';
+import '../../utils/refresh_controller.dart';
 import '../../widgets/category_card.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_tile.dart';
@@ -43,6 +44,7 @@ class StoreScreen extends StatefulWidget {
     this.kinds = const ['giftcard', 'smm', 'social_topup'],
     this.initialKind = 'giftcard',
     this.searchController,
+    this.balanceRefreshController,
   });
 
   /// Which store kinds this instance switches between — a single-entry list hides the
@@ -56,6 +58,13 @@ class StoreScreen extends StatefulWidget {
   /// other tabs (e.g. الرشق) keep their own always-visible search icon since nothing else
   /// offers one for them.
   final StoreSearchController? searchController;
+
+  /// See [RefreshController] — lets home_shell refresh this tab's floating balance chip
+  /// when it's reselected. HomeShell keeps every tab alive in an IndexedStack, so a
+  /// purchase made here (or paid for via topup) leaves the chip showing whatever balance
+  /// it fetched on first build until something explicitly tells it to reload — without
+  /// this, the chip looks like the charge never happened even after a successful order.
+  final RefreshController? balanceRefreshController;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -106,6 +115,7 @@ class _StoreScreenState extends State<StoreScreen> {
     super.initState();
     _catalogService = CatalogService(context.read<AuthStore>().api);
     widget.searchController?._openSearch = _openSearch;
+    widget.balanceRefreshController?.attach(_loadWalletBalance);
     _load();
     _loadWalletBalance();
   }
@@ -136,6 +146,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (widget.searchController?._openSearch == _openSearch) {
       widget.searchController?._openSearch = null;
     }
+    widget.balanceRefreshController?.detach(_loadWalletBalance);
     _debounceTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();

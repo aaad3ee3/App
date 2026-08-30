@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_store.dart';
 import '../theme/app_theme.dart';
+import '../utils/refresh_controller.dart';
 import '../widgets/ambient_glow.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../widgets/sayeh_logo.dart';
@@ -39,18 +40,36 @@ class _HomeShellState extends State<HomeShell> {
   // under the AppBar — see StoreSearchController in store_screen.dart.
   final _storeSearchController = StoreSearchController();
 
+  // Every tab below stays alive for the whole session in the IndexedStack further down —
+  // switching tabs never rebuilds them, so none of their initState-only fetches ever rerun
+  // on their own. That's invisible until money moves through a *different* tab than the
+  // one you're looking at: buy something from المتجر/الرشق, then check طلباتي or المحفظة,
+  // and both would otherwise still show whatever they loaded before the purchase — the
+  // order looks like it never went through and the balance looks like it was never
+  // charged, even though the backend processed both correctly (see RefreshController's own
+  // doc comment). One controller per tab that actually shows money or order state; _onTabSelected
+  // below calls .refresh() on whichever one the customer just switched to.
+  final _storeBalanceRefresh = RefreshController();
+  final _smmBalanceRefresh = RefreshController();
+  final _ordersRefresh = RefreshController();
+  final _walletRefresh = RefreshController();
+
   // The store is the one tab a visitor gets in full — everything else is about *their*
   // money and *their* orders, which needs an account to even mean anything.
   late final _pages = [
-    StoreScreen(kinds: const ['giftcard', 'social_topup'], searchController: _storeSearchController),
-    const StoreScreen(kinds: ['smm'], initialKind: 'smm'),
+    StoreScreen(
+      kinds: const ['giftcard', 'social_topup'],
+      searchController: _storeSearchController,
+      balanceRefreshController: _storeBalanceRefresh,
+    ),
+    StoreScreen(kinds: const ['smm'], initialKind: 'smm', balanceRefreshController: _smmBalanceRefresh),
     RequiresAccount(
       gate: SignInGate(
         icon: Icons.receipt_long_rounded,
         title: 'طلباتك تبان هنا',
         message: 'أنشئ حساب عشان تشتري وتتابع طلباتك وتلقى أكوادك محفوظة في أي وقت.',
       ),
-      child: OrdersHistoryScreen(embedded: true),
+      child: OrdersHistoryScreen(embedded: true, refreshController: _ordersRefresh),
     ),
     RequiresAccount(
       gate: SignInGate(
@@ -58,7 +77,7 @@ class _HomeShellState extends State<HomeShell> {
         title: 'محفظتك',
         message: 'أنشئ حساب عشان تشحن رصيدك بليبيانا وتشتري بضغطة وحدة.',
       ),
-      child: WalletScreen(),
+      child: WalletScreen(refreshController: _walletRefresh),
     ),
     RequiresAccount(
       gate: SignInGate(
@@ -69,6 +88,24 @@ class _HomeShellState extends State<HomeShell> {
       child: ProfileScreen(),
     ),
   ];
+
+  void _onTabSelected(int index) {
+    setState(() => _index = index);
+    switch (index) {
+      case 0:
+        _storeBalanceRefresh.refresh();
+        break;
+      case 1:
+        _smmBalanceRefresh.refresh();
+        break;
+      case 2:
+        _ordersRefresh.refresh();
+        break;
+      case 3:
+        _walletRefresh.refresh();
+        break;
+    }
+  }
 
   @override
   void initState() {
@@ -145,7 +182,7 @@ class _HomeShellState extends State<HomeShell> {
               iconSize: 18,
               visualDensity: VisualDensity.compact,
               onPressed: () {
-                setState(() => _index = 0);
+                _onTabSelected(0);
                 _storeSearchController.open();
               },
               icon: const Icon(Icons.search_rounded),
@@ -155,7 +192,7 @@ class _HomeShellState extends State<HomeShell> {
               tooltip: 'حسابي',
               iconSize: 18,
               visualDensity: VisualDensity.compact,
-              onPressed: () => setState(() => _index = 4),
+              onPressed: () => _onTabSelected(4),
               icon: const Icon(Icons.person_outline_rounded),
             ),
           ],
@@ -186,7 +223,7 @@ class _HomeShellState extends State<HomeShell> {
               color: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurfaceHigh : AppColors.surface,
               child: FloatingNavBar(
                 selectedIndex: _index,
-                onSelect: (i) => setState(() => _index = i),
+                onSelect: _onTabSelected,
                 items: const [
                   NavItem(icon: Icons.storefront_outlined, selectedIcon: Icons.storefront, label: 'المتجر'),
                   NavItem(icon: Icons.trending_up_rounded, selectedIcon: Icons.trending_up_rounded, label: 'الرشق'),

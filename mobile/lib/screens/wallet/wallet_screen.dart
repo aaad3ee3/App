@@ -8,11 +8,18 @@ import '../../services/auth_store.dart';
 import '../../services/topup_service.dart';
 import '../../services/wallet_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/refresh_controller.dart';
 import '../../widgets/glow_blob.dart';
 import '../topup/topup_screen.dart';
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({super.key});
+  const WalletScreen({super.key, this.refreshController});
+
+  /// See [RefreshController] — lets home_shell reload the balance/transactions when this
+  /// tab is reselected, since HomeShell keeps it alive in an IndexedStack instead of
+  /// rebuilding it (so a purchase made from a different tab would otherwise show the old
+  /// balance here indefinitely, reading as "the charge never happened" even though it did).
+  final RefreshController? refreshController;
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -37,7 +44,14 @@ class _WalletScreenState extends State<WalletScreen> {
     final api = context.read<AuthStore>().api;
     _walletService = WalletService(api);
     _topupService = TopupService(api);
+    widget.refreshController?.attach(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refreshController?.detach(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
