@@ -1,22 +1,21 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../screens/store/category_products_screen.dart';
-import '../theme/app_theme.dart';
 import '../utils/featured_brands.dart';
 
 /// The Home Dashboard's top strip: three real brand categories (PlayStation, PUBG, Xbox —
-/// see featured_brands.dart) as floating, tilted faceted-crystal shards on a dark blurred
-/// panel. Went through several revisions per direct feedback before landing here: a center
-/// Sayeh-mark circle with badges orbiting it (unreadable, clipped), plain white circles
-/// (washed-out against real category art), squircles framed in section color ("just square
-/// badges"), then plain glass pills ("زق") — this faceted-crystal-shard treatment (an
-/// asymmetric triangle-to-hexagon shape with internal fracture lines, a chromatic/rainbow
-/// dispersion rim, and specular edge highlights, per a fully-specified reference
-/// implementation) was requested directly.
+/// see featured_brands.dart) as floating, tilted faceted-crystal gems. Went through several
+/// revisions per direct feedback before landing here: a center Sayeh-mark circle with badges
+/// orbiting it (unreadable, clipped), plain white circles (washed-out against real category
+/// art), squircles framed in section color ("just square badges"), plain glass pills ("زق"),
+/// then a first crystal-shard pass that read as flat 2D scribbles on a boxed dark panel —
+/// per direct feedback the panel itself was dropped (transparent, blends into the page
+/// instead of sitting in a gray box) and the shard shape/shading redone as a symmetric
+/// hexagonal gem with a from-within radial glow and shaded pie-slice facets, matching a
+/// real reference screenshot's actual 3D gem-badge look rather than 2D fracture lines.
 class FloatingHero extends StatefulWidget {
   const FloatingHero({super.key, required this.items});
 
@@ -45,57 +44,49 @@ class _FloatingHeroState extends State<FloatingHero> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // The middle slot is the visually featured one — PlayStation, per the requested
     // PUBG/PlayStation/Xbox order — bigger and with a pulsing glow instead of every token
     // reading as equally weighted.
     final centerIndex = widget.items.length ~/ 2;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
-          decoration: BoxDecoration(
-            color: (isDark ? AppColors.navyDark : AppColors.navy).withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            children: [
-              SizedBox(
-                height: 220,
-                child: AnimatedBuilder(
-                  animation: _float,
-                  builder: (context, _) => Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      for (int i = 0; i < widget.items.length; i++)
-                        _GlassOrbitToken(
-                          item: widget.items[i],
-                          isCenter: i == centerIndex,
-                          tiltSign: i < centerIndex ? 1 : (i > centerIndex ? -1 : 0),
-                          t: _float.value,
-                          phase: i * 0.9,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: widget.items[i].category)),
-                          ),
-                        ),
-                    ],
+    // No boxed panel around the gems per direct feedback — they float straight on the
+    // page background instead of sitting in a gray card, while still reading as 3D
+    // themselves via the shard shading/glow (see _CrystalShardPainter).
+    return Column(
+      children: [
+        SizedBox(
+          height: 150,
+          child: AnimatedBuilder(
+            animation: _float,
+            builder: (context, _) => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                for (int i = 0; i < widget.items.length; i++)
+                  _GlassOrbitToken(
+                    item: widget.items[i],
+                    isCenter: i == centerIndex,
+                    tiltSign: i < centerIndex ? 1 : (i > centerIndex ? -1 : 0),
+                    t: _float.value,
+                    phase: i * 0.9,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: widget.items[i].category)),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'أفضل الفئات عندنا الآن',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: Colors.white.withValues(alpha: 0.75)),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          'أفضل الفئات عندنا الآن',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 12.5,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -183,8 +174,8 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with TickerProviderS
     if (wasTap) _handleTap();
   }
 
-  static const double _shardWidth = 100;
-  static const double _shardHeight = 145;
+  static const double _shardWidth = 82;
+  static const double _shardHeight = 112;
 
   @override
   Widget build(BuildContext context) {
@@ -289,11 +280,12 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with TickerProviderS
   }
 }
 
-/// The faceted crystal shard shape itself: an asymmetric hybrid outline (a sharp triangular
-/// peak fusing into a lopsided, faceted hexagonal body — deliberately not a circle or a
-/// plain rectangle), a few translucent facet planes for depth, a network of jagged internal
-/// "laser fracture" lines, and a rainbow (chromatic-dispersion) sweep stroked around the
-/// whole outline — all per a fully-specified reference implementation. All coordinates are
+/// The faceted crystal gem shape itself — rebuilt per direct feedback that the first pass
+/// read as flat 2D scribbles ("زق"), not the volumetric cut-gem look of the reference
+/// screenshot: a symmetric elongated hexagon (matching the reference's actual outline,
+/// not the earlier lopsided one), a radial "glow from within" fill standing in for a light
+/// source behind the glass, six pie-slice facets shaded light-to-dark like a real gem
+/// catching one light source, and a rainbow chromatic-dispersion rim. All coordinates are
 /// fractions of the canvas size so the same painter serves every token regardless of the
 /// scale its Transform applies on top.
 class _CrystalShardPainter extends CustomPainter {
@@ -302,92 +294,71 @@ class _CrystalShardPainter extends CustomPainter {
   final Color glowColor;
   final double pulse;
 
+  // Relative brightness per facet (positive = white highlight, negative = shadow) —
+  // stronger contrast than a flat tint, which is what actually reads as "3D cut" rather
+  // than a flat painted hexagon.
+  static const _facetShades = [0.30, 0.06, -0.16, -0.30, -0.12, 0.14];
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
+    final center = Offset(w * 0.5, h * 0.5);
+    final radius = w * 0.62;
 
-    final outline = Path()
-      ..moveTo(w * 0.50, h * 0.05)
-      ..lineTo(w * 0.88, h * 0.28)
-      ..lineTo(w * 0.82, h * 0.85)
-      ..lineTo(w * 0.58, h * 0.98)
-      ..lineTo(w * 0.22, h * 0.92)
-      ..lineTo(w * 0.12, h * 0.35)
-      ..close();
-
-    // 1. Dark frosted-glass body.
-    final bodyPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [const Color(0xFF1E293B).withValues(alpha: 0.55), const Color(0xFF0B0E14).withValues(alpha: 0.85)],
-      ).createShader(Offset.zero & size);
-    canvas.drawPath(outline, bodyPaint);
-
-    // 2. Faceted reflection planes — alternating tints so the surface reads as multiple
-    // angled panes of glass rather than one flat fill.
-    final facetTopRight = Path()
-      ..moveTo(w * 0.50, h * 0.05)
-      ..lineTo(w * 0.88, h * 0.28)
-      ..lineTo(w * 0.58, h * 0.48)
-      ..close();
-    final facetTopLeft = Path()
-      ..moveTo(w * 0.50, h * 0.05)
-      ..lineTo(w * 0.58, h * 0.48)
-      ..lineTo(w * 0.12, h * 0.35)
-      ..close();
-    final facetBottom = Path()
-      ..moveTo(w * 0.12, h * 0.35)
-      ..lineTo(w * 0.58, h * 0.48)
-      ..lineTo(w * 0.82, h * 0.85)
-      ..lineTo(w * 0.58, h * 0.98)
-      ..lineTo(w * 0.22, h * 0.92)
-      ..close();
-    canvas.drawPath(facetTopRight, Paint()..color = Colors.white.withValues(alpha: 0.14));
-    canvas.drawPath(facetTopLeft, Paint()..color = Colors.white.withValues(alpha: 0.07));
-    canvas.drawPath(facetBottom, Paint()..color = Colors.black.withValues(alpha: 0.12));
-
-    // 3. Internal laser micro-fractures — a jagged spine from the peak to the base plus a
-    // few branching hairline cracks, glowing blue/violet/rose to sell light refracting
-    // inside the glass. Pulses gently with the same clock driving the token's float.
-    final crackAlpha = 0.55 + 0.35 * pulse;
-    final spine = Path()
-      ..moveTo(w * 0.50, h * 0.05)
-      ..lineTo(w * 0.58, h * 0.48)
-      ..lineTo(w * 0.48, h * 0.72)
-      ..lineTo(w * 0.58, h * 0.98);
-    canvas.drawPath(
-      spine,
-      Paint()
-        ..color = Colors.white.withValues(alpha: crackAlpha)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..strokeCap = StrokeCap.round,
-    );
-    final branches = [
-      (Path()
-        ..moveTo(w * 0.58, h * 0.48)
-        ..lineTo(w * 0.82, h * 0.85), const Color(0xFF38BDF8)),
-      (Path()
-        ..moveTo(w * 0.48, h * 0.72)
-        ..lineTo(w * 0.22, h * 0.92), const Color(0xFFC084FC)),
-      (Path()
-        ..moveTo(w * 0.58, h * 0.48)
-        ..lineTo(w * 0.35, h * 0.55), const Color(0xFF38BDF8)),
+    final vertices = [
+      Offset(w * 0.50, h * 0.03), // top
+      Offset(w * 0.94, h * 0.30), // upper right
+      Offset(w * 0.94, h * 0.74), // lower right
+      Offset(w * 0.50, h * 0.99), // bottom
+      Offset(w * 0.06, h * 0.74), // lower left
+      Offset(w * 0.06, h * 0.30), // upper left
     ];
-    for (final (path, color) in branches) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = color.withValues(alpha: crackAlpha)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.1,
-      );
+    final outline = Path()..addPolygon(vertices, true);
+
+    // 1. Radial glow-from-within fill — a bright core fading to near-black at the rim, so
+    // the gem reads as lit from behind the glass rather than as a flat painted shape.
+    canvas.drawPath(
+      outline,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Color.lerp(glowColor, Colors.white, 0.35)!.withValues(alpha: 0.55 * pulse),
+            const Color(0xFF141A26).withValues(alpha: 0.92),
+            const Color(0xFF05070C).withValues(alpha: 0.97),
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+
+    // 2. Six pie-slice facets fanning out from center to each edge, alternating
+    // light/shadow tints — a real cut gem catching a single light source differently per
+    // face. This is what replaces the old jagged "fracture" lines, which read as
+    // scratches rather than as an actual faceted 3D surface.
+    for (var i = 0; i < vertices.length; i++) {
+      final a = vertices[i];
+      final b = vertices[(i + 1) % vertices.length];
+      final facet = Path()
+        ..moveTo(center.dx, center.dy)
+        ..lineTo(a.dx, a.dy)
+        ..lineTo(b.dx, b.dy)
+        ..close();
+      final shade = _facetShades[i];
+      canvas.drawPath(facet, Paint()..color = (shade >= 0 ? Colors.white : Colors.black).withValues(alpha: shade.abs()));
+    }
+
+    // 3. Fine straight facet-divider lines from center to each vertex — clean cut edges,
+    // not scribbled cracks.
+    final dividerPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.16)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final v in vertices) {
+      canvas.drawLine(center, v, dividerPaint);
     }
 
     // 4. Chromatic-dispersion rim — a rainbow sweep stroked around the whole outline, the
-    // one element that most sells "cut crystal" over "glass blob".
+    // one element that most sells "cut gem" over "glass blob".
     canvas.drawPath(
       outline,
       Paint()
@@ -398,35 +369,27 @@ class _CrystalShardPainter extends CustomPainter {
           const Color(0xFFF43F5E),
           glowColor,
           Colors.white.withValues(alpha: 0.95),
-        ]).createShader(Offset.zero & size)
+        ]).createShader(Rect.fromCircle(center: center, radius: radius))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4
+        ..strokeWidth = 2.8
         ..strokeJoin = StrokeJoin.round,
     );
 
-    // 5. Specular razor highlights — bright short strokes at the sharpest corners only,
-    // where a real cut edge would catch the most light.
-    final apexGlint = Path()
-      ..moveTo(w * 0.40, h * 0.12)
-      ..lineTo(w * 0.50, h * 0.05)
-      ..lineTo(w * 0.65, h * 0.15);
-    canvas.drawPath(
-      apexGlint,
+    // 5. Specular highlight streaks at two opposing edges — a rounded cut edge catching
+    // light, matching the reference's own top/side glints.
+    canvas.drawLine(
+      Offset(w * 0.28, h * 0.11),
+      Offset(w * 0.50, h * 0.03),
       Paint()
         ..color = Colors.white.withValues(alpha: 0.9)
-        ..style = PaintingStyle.stroke
         ..strokeWidth = 3
         ..strokeCap = StrokeCap.round,
     );
-    final baseGlint = Path()
-      ..moveTo(w * 0.30, h * 0.90)
-      ..lineTo(w * 0.22, h * 0.92)
-      ..lineTo(w * 0.15, h * 0.55);
-    canvas.drawPath(
-      baseGlint,
+    canvas.drawLine(
+      Offset(w * 0.94, h * 0.40),
+      Offset(w * 0.94, h * 0.58),
       Paint()
-        ..color = glowColor.withValues(alpha: 0.8)
-        ..style = PaintingStyle.stroke
+        ..color = Colors.white.withValues(alpha: 0.55)
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
