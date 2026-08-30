@@ -7,6 +7,7 @@ import { formatMoney } from "../utils/format";
 interface UserListItem {
   id: string;
   email: string;
+  phone: string | null;
   full_name: string | null;
   is_admin: boolean;
   status: string;
@@ -67,6 +68,7 @@ export function UsersPage() {
             <thead>
               <tr>
                 <th>البريد الإلكتروني</th>
+                <th>الهاتف</th>
                 <th>الاسم</th>
                 <th>الرصيد</th>
                 <th>الحالة</th>
@@ -78,8 +80,9 @@ export function UsersPage() {
               {items.map((u) => (
                 <tr key={u.id}>
                   <td>
-                    <Link to={`/users/${u.id}`}>{u.email}</Link>
+                    <Link to={`/users/${u.id}`}>{u.email ?? "—"}</Link>
                   </td>
+                  <td style={{ direction: "ltr", textAlign: "start" }}>{u.phone ?? "—"}</td>
                   <td>{u.full_name ?? "—"}</td>
                   <td>{u.balance ? `${formatMoney(u.balance)} LYD` : "—"}</td>
                   <td>

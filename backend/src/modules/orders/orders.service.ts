@@ -89,6 +89,7 @@ export async function createOrder(
   let targetLink: string | null;
   let socialParams: Record<string, string> | null = null;
   let unitPrice: number;
+  let unitCost: number;
 
   if (product.kind === "giftcard") {
     if (input.quantity !== undefined && input.quantity !== 1) {
@@ -100,6 +101,7 @@ export async function createOrder(
     quantity = 1;
     targetLink = null;
     unitPrice = Number(product.sell_price);
+    unitCost = Number(product.cost_price);
   } else if (product.kind === "social_topup") {
     if (input.targetLink) {
       throw new HttpError(400, "unexpected_target_link", "This product does not accept a target link");
@@ -128,6 +130,7 @@ export async function createOrder(
     socialParams = collected;
     // product.sell_price is already a per-unit rate for social_topup (unlike smm's per-1000).
     unitPrice = Number(product.sell_price);
+    unitCost = Number(product.cost_price);
   } else {
     quantity = input.quantity ?? 0;
     if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -143,11 +146,14 @@ export async function createOrder(
     if (!targetLink) {
       throw new HttpError(400, "target_link_required", "target_link is required for this product");
     }
-    // product.sell_price is a rate PER 1000 units for smm products.
+    // product.sell_price (and correspondingly cost_price) is a rate PER 1000 units for
+    // smm products.
     unitPrice = Number(product.sell_price) / 1000;
+    unitCost = Number(product.cost_price) / 1000;
   }
 
   const totalPrice = Math.round(unitPrice * quantity * 10000) / 10000;
+  const totalCost = Math.round(unitCost * quantity * 10000) / 10000;
   const orderId = crypto.randomUUID();
   const couponCode = input.couponCode?.trim();
 
@@ -170,6 +176,8 @@ export async function createOrder(
         targetLink,
         unitPrice: unitPrice.toFixed(4),
         totalPrice: totalPrice.toFixed(4),
+        unitCost: unitCost.toFixed(4),
+        totalCost: totalCost.toFixed(4),
         socialParams,
       },
       trx

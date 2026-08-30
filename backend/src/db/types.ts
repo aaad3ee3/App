@@ -104,7 +104,7 @@ export interface AdminActionRow {
   id: string;
   admin_user_id: string;
   action: string;
-  target_type: "sms_event" | "topup_request" | "wallet" | "order" | "product";
+  target_type: "sms_event" | "topup_request" | "wallet" | "order" | "product" | "security_finding";
   target_id: string;
   details: unknown;
   created_at: Date;
@@ -112,6 +112,19 @@ export interface AdminActionRow {
 
 export type ProductKind = "giftcard" | "smm" | "social_topup";
 export type Supplier = "libya_play" | "plus";
+
+export type SecurityFindingSeverity = "info" | "warning" | "critical";
+
+export interface SecurityFindingRow {
+  id: string;
+  check_key: string;
+  severity: SecurityFindingSeverity;
+  title: string;
+  description: string;
+  detected_at: Date;
+  resolved_at: Date | null;
+  resolved_by: string | null;
+}
 
 export interface CategoryRow {
   id: string;
@@ -161,6 +174,12 @@ export interface OrderRow {
   target_link: string | null;
   unit_price: string;
   total_price: string;
+  /** Snapshot of the product's cost at order time — see the migration that added these for
+   *  why this isn't just re-derived from products.cost_price. Null only for orders placed
+   *  before that migration and never touched by its one-time backfill (should not happen
+   *  in practice, but the column is nullable rather than assuming the backfill was total). */
+  unit_cost: string | null;
+  total_cost: string | null;
   status: OrderStatus;
   wallet_debit_transaction_id: string | null;
   wallet_refund_transaction_id: string | null;

@@ -7,6 +7,7 @@ import { formatMoney } from "../utils/format";
 interface UserDetail {
   id: string;
   email: string;
+  phone: string | null;
   full_name: string | null;
   is_admin: boolean;
   status: string;
@@ -54,7 +55,11 @@ export function UserDetailPage() {
             <tbody>
               <tr>
                 <th>البريد الإلكتروني</th>
-                <td>{user.email}</td>
+                <td>{user.email ?? "—"}</td>
+              </tr>
+              <tr>
+                <th>الهاتف</th>
+                <td style={{ direction: "ltr", textAlign: "start" }}>{user.phone ?? "—"}</td>
               </tr>
               <tr>
                 <th>الاسم</th>

@@ -164,4 +164,21 @@ export default async function adminRoutes(app: FastifyInstance) {
     const input = updateCouponSchema.parse(request.body);
     return adminService.updateCoupon(request.user!.id, id, input);
   });
+
+  // --- Analytics ---
+
+  app.get("/analytics/summary", async () => {
+    return adminService.getAnalyticsSummary();
+  });
+
+  // --- Alerts ---
+
+  app.get("/alerts", async () => {
+    return { items: await adminService.listAlerts() };
+  });
+
+  app.post("/alerts/findings/:id/resolve", async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    return adminService.resolveSecurityFinding(request.user!.id, id);
+  });
 }

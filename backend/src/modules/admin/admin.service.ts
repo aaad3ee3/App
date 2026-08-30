@@ -1,4 +1,5 @@
 import { db } from "../../db/knex";
+import { env } from "../../config/env";
 import { SMS_MATCH_STATUS, TOPUP_STATUS, WALLET_TX_REFERENCE_TYPES, WALLET_TX_TYPES } from "../../config/constants";
 import { HttpError } from "../../plugins/error-handler.plugin";
 import type { OrderStatus, SmsMatchStatus, TopupStatus } from "../../db/types";
@@ -14,6 +15,7 @@ import * as binanceTopupRepo from "../binance-topup/binance-topup.repository";
 import * as walletRepo from "../wallet/wallet.repository";
 import * as notifications from "../notifications/notifications.service";
 import * as couponsService from "../coupons/coupons.service";
+import * as securityFindingsRepo from "../security/security-findings.repository";
 import * as adminRepo from "./admin.repository";
 
 export async function listSmsEvents(matchStatus: string | undefined, page: number, pageSize: number) {
@@ -307,4 +309,146 @@ export async function updateCoupon(
   });
   await adminRepo.logAction({ adminUserId: adminId, action: "update_coupon", targetType: "product", targetId: couponId, details: fields });
   return result;
+}
+
+// --- Analytics ---
+
+interface PeriodTotals {
+  today: number;
+  month: number;
+  year: number;
+}
+
+interface StoreTotals {
+  revenue: PeriodTotals;
+  profit: PeriodTotals;
+  orders: PeriodTotals;
+}
+
+function emptyPeriodTotals(): PeriodTotals {
+  return { today: 0, month: 0, year: 0 };
+}
+
+function addPeriodTotals(a: PeriodTotals, b: PeriodTotals): PeriodTotals {
+  return { today: a.today + b.today, month: a.month + b.month, year: a.year + b.year };
+}
+
+function combineStoreTotals(a: StoreTotals, b: StoreTotals): StoreTotals {
+  return {
+    revenue: addPeriodTotals(a.revenue, b.revenue),
+    profit: addPeriodTotals(a.profit, b.profit),
+    orders: addPeriodTotals(a.orders, b.orders),
+  };
+}
+
+/**
+ * كروت = giftcard + social_topup (المتجر's dashboard tab); الرشق = smm (its own tab) —
+ * mirrors exactly how the mobile app itself splits these two, not an arbitrary regrouping.
+ * Profit uses each order's own recorded total_cost (see the migration that added it) so
+ * it reflects the markup percent and supplier cost that were actually in effect when each
+ * order was placed, not today's.
+ */
+export async function getAnalyticsSummary() {
+  const now = new Date();
+  const [byKind, userCounts, topProducts] = await Promise.all([
+    adminRepo.getRevenueByKind(now),
+    adminRepo.getNewUserCounts(now),
+    adminRepo.getTopProducts(10),
+  ]);
+
+  const cards: StoreTotals = { revenue: emptyPeriodTotals(), profit: emptyPeriodTotals(), orders: emptyPeriodTotals() };
+  const rasheq: StoreTotals = { revenue: emptyPeriodTotals(), profit: emptyPeriodTotals(), orders: emptyPeriodTotals() };
+
+  for (const row of byKind) {
+    const bucket = row.kind === "smm" ? rasheq : cards;
+    bucket.revenue.today += Number(row.revenue_today);
+    bucket.revenue.month += Number(row.revenue_month);
+    bucket.revenue.year += Number(row.revenue_year);
+    bucket.profit.today += Number(row.profit_today);
+    bucket.profit.month += Number(row.profit_month);
+    bucket.profit.year += Number(row.profit_year);
+    bucket.orders.today += Number(row.order_count_today);
+    bucket.orders.month += Number(row.order_count_month);
+    bucket.orders.year += Number(row.order_count_year);
+  }
+
+  return {
+    generated_at: now.toISOString(),
+    // Surfaced so the numbers are auditable — not black-boxed — against whatever is
+    // actually configured in this environment right now, not a hardcoded assumption.
+    pricing: { usd_to_lyd_rate: env.PLUS_USD_TO_LYD_RATE, markup_percent: env.CATALOG_MARKUP_PERCENT },
+    users: { today: Number(userCounts.today), month: Number(userCounts.month), year: Number(userCounts.year) },
+    stores: { cards, rasheq, combined: combineStoreTotals(cards, rasheq) },
+    top_products: topProducts.map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind,
+      order_count: Number(p.order_count),
+      revenue: Number(p.revenue),
+    })),
+  };
+}
+
+// --- Alerts ---
+
+export interface AlertItem {
+  id: string;
+  type: "order_failure" | "security_finding";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  description: string;
+  occurred_at: string;
+  resolved: boolean;
+  order_id?: string;
+  finding_id?: string;
+}
+
+const ORDER_ISSUE_TITLES: Record<string, string> = {
+  ambiguous_error: "طلب بحاجة لمراجعة يدوية",
+  failed: "طلب فشل وتم استرجاع المبلغ تلقائياً",
+};
+
+/** Unifies two very different sources into one feed an admin can actually watch day to
+ *  day: orders whose fulfillment didn't go cleanly (queried live off `orders` — no
+ *  separate storage needed, it's already the source of truth) and the integrity scan's
+ *  own findings (security-scan.job.ts, persisted since they're the *output* of a
+ *  background job rather than derivable on demand). */
+export async function listAlerts(): Promise<AlertItem[]> {
+  const [orderIssues, findings] = await Promise.all([adminRepo.listRecentOrderIssues(50), securityFindingsRepo.listOpenFindings()]);
+
+  const orderAlerts: AlertItem[] = orderIssues.map((o) => ({
+    id: `order:${o.id}`,
+    type: "order_failure",
+    severity: o.status === "ambiguous_error" ? "warning" : "info",
+    title: ORDER_ISSUE_TITLES[o.status] ?? "طلب بحاجة لمراجعة",
+    description: `طلب ${o.kind} بقيمة ${o.total_price} د.ل${o.error_message ? ` — ${o.error_message}` : ""}`,
+    occurred_at: o.created_at.toISOString(),
+    resolved: o.status !== "ambiguous_error",
+    order_id: o.id,
+  }));
+
+  const findingAlerts: AlertItem[] = findings.map((f) => ({
+    id: `finding:${f.id}`,
+    type: "security_finding",
+    severity: f.severity,
+    title: f.title,
+    description: f.description,
+    occurred_at: f.detected_at.toISOString(),
+    resolved: false,
+    finding_id: f.id,
+  }));
+
+  return [...orderAlerts, ...findingAlerts].sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
+}
+
+export async function resolveSecurityFinding(adminId: string, findingId: string) {
+  const row = await securityFindingsRepo.resolveFinding(findingId, adminId);
+  if (!row) throw new HttpError(404, "not_found", "Finding not found or already resolved");
+  await adminRepo.logAction({
+    adminUserId: adminId,
+    action: "resolve_security_finding",
+    targetType: "security_finding",
+    targetId: findingId,
+  });
+  return row;
 }

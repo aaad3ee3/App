@@ -6,6 +6,8 @@ import { startPollSmmOrdersJob } from "./jobs/poll-smm-orders.job";
 import { startPollSocialOrdersJob } from "./jobs/poll-social-orders.job";
 import { startPurgeSessionsJob } from "./jobs/purge-sessions.job";
 import { startReengagementPushJob } from "./jobs/reengagement-push.job";
+import { startSecurityScanJob } from "./jobs/security-scan.job";
+import { runSecurityScan } from "./modules/security/security-scan.service";
 import { closeRedis } from "./lib/redis";
 
 async function main() {
@@ -16,6 +18,12 @@ async function main() {
   const purgeSessionsHandle = startPurgeSessionsJob(6 * 60 * 60_000);
   const reengagementHandle = startReengagementPushJob(6 * 60 * 60_000);
   const autoCatalogSyncHandle = startAutoCatalogSyncJob(6 * 60 * 60_000);
+  const securityScanHandle = startSecurityScanJob(24 * 60 * 60_000);
+  // Runs once immediately at boot too — otherwise the alerts feed stays empty for up to a
+  // full day after every deploy instead of reflecting the current state right away.
+  void runSecurityScan().catch((err) => {
+    app.log.error({ err }, "initial security scan failed");
+  });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "shutting down");
@@ -25,6 +33,7 @@ async function main() {
     clearInterval(purgeSessionsHandle);
     clearInterval(reengagementHandle);
     clearInterval(autoCatalogSyncHandle);
+    clearInterval(securityScanHandle);
     await app.close();
     await closeRedis();
     process.exit(0);

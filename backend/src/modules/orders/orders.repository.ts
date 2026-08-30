@@ -11,6 +11,8 @@ export interface InsertPendingOrderInput {
   targetLink: string | null;
   unitPrice: string;
   totalPrice: string;
+  unitCost: string;
+  totalCost: string;
   socialParams?: Record<string, string> | null;
 }
 
@@ -25,6 +27,8 @@ export async function insertPendingOrder(input: InsertPendingOrderInput, trx: Kn
       target_link: input.targetLink,
       unit_price: input.unitPrice,
       total_price: input.totalPrice,
+      unit_cost: input.unitCost,
+      total_cost: input.totalCost,
       status: "pending",
       // See the analogous comment on products.required_params in catalog.repository.ts.
       social_params: (input.socialParams ? JSON.stringify(input.socialParams) : null) as unknown as Record<string, string> | null,

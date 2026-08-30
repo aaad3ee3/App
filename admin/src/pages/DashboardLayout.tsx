@@ -3,6 +3,8 @@ import { useAuth } from "../auth/AuthContext";
 import { SayehLogo } from "../components/SayehLogo";
 
 const NAV_ITEMS = [
+  { to: "/analytics", label: "التحليلات" },
+  { to: "/alerts", label: "الإشعارات" },
   { to: "/users", label: "المستخدمون" },
   { to: "/topups", label: "طلبات الشحن" },
   { to: "/sms-events", label: "رسائل الشحن" },
