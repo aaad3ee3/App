@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../screens/store/category_products_screen.dart';
 import '../theme/app_theme.dart';
@@ -122,9 +123,22 @@ class _GlassOrbitToken extends StatefulWidget {
   State<_GlassOrbitToken> createState() => _GlassOrbitTokenState();
 }
 
-class _GlassOrbitTokenState extends State<_GlassOrbitToken> with SingleTickerProviderStateMixin {
+class _GlassOrbitTokenState extends State<_GlassOrbitToken> with TickerProviderStateMixin {
+  static const _dragResetSpring = SpringDescription(mass: 1, stiffness: 180, damping: 20);
+
+  // A drag shorter than this is treated as a tap (navigates) rather than a
+  // grab-and-release (just springs back) — matches how every other tappable
+  // card in the app tolerates a little finger jitter without missing the tap.
+  static const _tapSlop = 6.0;
+
   late final AnimationController _bounce;
   late final Animation<double> _bounceScale;
+  late final AnimationController _dragReset;
+
+  /// Current finger-driven offset from rest, in pixels — set directly while dragging,
+  /// eased back to zero by [_dragReset] once the finger lifts.
+  Offset _drag = Offset.zero;
+  Offset _dragResetFrom = Offset.zero;
 
   @override
   void initState() {
@@ -134,11 +148,16 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with SingleTickerPro
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.16).chain(CurveTween(curve: Curves.easeOut)), weight: 35),
       TweenSequenceItem(tween: Tween(begin: 1.16, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 65),
     ]).animate(_bounce);
+    _dragReset = AnimationController(vsync: this)
+      ..addListener(() {
+        setState(() => _drag = Offset.lerp(_dragResetFrom, Offset.zero, _dragReset.value)!);
+      });
   }
 
   @override
   void dispose() {
     _bounce.dispose();
+    _dragReset.dispose();
     super.dispose();
   }
 
@@ -146,6 +165,19 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with SingleTickerPro
     await _bounce.forward(from: 0);
     if (!mounted) return;
     widget.onTap();
+  }
+
+  void _onPanDown(DragDownDetails _) => _dragReset.stop();
+
+  void _onPanUpdate(DragUpdateDetails details) => setState(() => _drag += details.delta);
+
+  void _onPanEnd([Object? _]) {
+    final wasTap = _drag.distance < _tapSlop;
+    _dragResetFrom = _drag;
+    _dragReset
+      ..value = 0
+      ..animateWith(SpringSimulation(_dragResetSpring, 0, 1, 0));
+    if (wasTap) _handleTap();
   }
 
   static const double _shardWidth = 100;
@@ -159,23 +191,38 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with SingleTickerPro
     final floatY = math.sin((widget.t * 2 * math.pi) + widget.phase) * (widget.isCenter ? 12 : 8);
     // Real 3D perspective (Matrix4 setEntry), not a plain rotation — the two side shards
     // lean toward the center one on both axes at once, the center one stays flat and
-    // instead pulses its own glow so it still reads as "alive" without tilting.
-    final rotationY = widget.isCenter ? 0.0 : 0.18 * widget.tiltSign;
-    final rotationZ = widget.isCenter ? 0.0 : -0.06 * widget.tiltSign;
+    // instead pulses its own glow so it still reads as "alive" without tilting. This is
+    // each shard's own resting tilt — dragging adds on top of it and returning always
+    // springs back to exactly this, not to flat.
+    final restRotationY = widget.isCenter ? 0.0 : 0.18 * widget.tiltSign;
+    final restRotationZ = widget.isCenter ? 0.0 : -0.06 * widget.tiltSign;
     final pulse = widget.isCenter ? (0.65 + 0.35 * (0.5 + 0.5 * math.sin(widget.t * 2 * math.pi))) : 1.0;
 
+    // Dragging moves the shard with the finger on both axes and, per direct request,
+    // lets it spin up to a full 180° — sideways drag maps onto the spin (a real coin-flip
+    // reads as rotating around its vertical axis while it moves sideways), a fully
+    // outstretched drag reaching exactly ±pi radians, while vertical drag adds a lighter
+    // forward/back tilt so up/down movement still visibly does something in 3D.
+    final dragSpin = (_drag.dx / 90.0).clamp(-1.0, 1.0) * math.pi;
+    final dragTiltX = (_drag.dy / 140.0).clamp(-1.0, 1.0) * (math.pi / 6);
+
     return GestureDetector(
-      onTap: _handleTap,
+      behavior: HitTestBehavior.opaque,
+      onPanDown: _onPanDown,
+      onPanUpdate: _onPanUpdate,
+      onPanEnd: _onPanEnd,
+      onPanCancel: _onPanEnd,
       child: AnimatedBuilder(
         animation: _bounce,
         builder: (context, child) => Transform.translate(
-          offset: Offset(0, floatY),
+          offset: Offset(_drag.dx, floatY + _drag.dy),
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.002)
-              ..rotateY(rotationY)
-              ..rotateZ(rotationZ)
+              ..rotateX(dragTiltX)
+              ..rotateY(restRotationY + dragSpin)
+              ..rotateZ(restRotationZ)
               ..scale(scale * _bounceScale.value),
             child: child,
           ),
