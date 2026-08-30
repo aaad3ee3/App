@@ -421,7 +421,7 @@ class _StoreScreenState extends State<StoreScreen> {
             crossAxisCount: 3,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.62,
           ),
           itemCount: _categories.length,
           itemBuilder: (context, index) => AnimationConfiguration.staggeredGrid(
@@ -565,7 +565,7 @@ class _HomeSectionBlock extends StatelessWidget {
           crossAxisCount: 3,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          childAspectRatio: 0.72,
+          childAspectRatio: 0.62,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [for (final category in preview) CategoryCard(category: category)],

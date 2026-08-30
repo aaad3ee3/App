@@ -23,7 +23,7 @@ class SectionCategoriesScreen extends StatelessWidget {
             crossAxisCount: 3,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.72,
+            childAspectRatio: 0.62,
           ),
           itemCount: categories.length,
           itemBuilder: (context, index) => AnimationConfiguration.staggeredGrid(
