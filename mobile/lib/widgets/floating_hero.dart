@@ -32,7 +32,8 @@ class _FloatingHeroState extends State<FloatingHero> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _float = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
+    // Sped up per direct feedback that the float felt sluggish — was a 3s cycle.
+    _float = AnimationController(vsync: this, duration: const Duration(milliseconds: 1700))..repeat();
   }
 
   @override
@@ -124,7 +125,9 @@ class _GlassOrbitToken extends StatefulWidget {
 }
 
 class _GlassOrbitTokenState extends State<_GlassOrbitToken> with TickerProviderStateMixin {
-  static const _dragResetSpring = SpringDescription(mass: 1, stiffness: 180, damping: 20);
+  // Stiffer than the login card's own reset spring — a small shard reads as sluggish at
+  // the same settle speed a much bigger card gets away with, per direct feedback.
+  static const _dragResetSpring = SpringDescription(mass: 1, stiffness: 320, damping: 24);
 
   // A drag shorter than this is treated as a tap (navigates) rather than a
   // grab-and-release (just springs back) — matches how every other tappable
@@ -143,7 +146,7 @@ class _GlassOrbitTokenState extends State<_GlassOrbitToken> with TickerProviderS
   @override
   void initState() {
     super.initState();
-    _bounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _bounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _bounceScale = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.16).chain(CurveTween(curve: Curves.easeOut)), weight: 35),
       TweenSequenceItem(tween: Tween(begin: 1.16, end: 1.0).chain(CurveTween(curve: Curves.elasticOut)), weight: 65),
