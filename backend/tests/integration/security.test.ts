@@ -215,17 +215,56 @@ describe("security", () => {
         receivedAt: "2026-01-01T00:00:00.000Z",
       },
     });
-    const signature = hmacSha256Hex(env.SMS_WEBHOOK_HMAC_SECRET, rawBody);
+    // Matches capcom6/android-sms-gateway's PayloadSingingPlugin exactly: the timestamp is
+    // appended to the body text before signing, not signed on its own — see
+    // webhook-hmac.plugin.ts's docstring for why this is the one thing that must match.
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = hmacSha256Hex(env.SMS_WEBHOOK_HMAC_SECRET, rawBody + timestamp);
 
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/webhooks/sms/libyana",
-      headers: { "content-type": "application/json", "x-signature": signature },
+      headers: { "content-type": "application/json", "x-signature": signature, "x-timestamp": timestamp },
       payload: rawBody,
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json().match_status).toBe("matched");
+  });
+
+  it("rejects a signature computed over the body alone, without the timestamp appended", async () => {
+    // Regression for the exact bug that silently blocked every real delivery: signing the
+    // raw body alone (the pre-fix scheme here) never matches what the real gateway app
+    // sends, no matter how correct the shared secret is.
+    app = await buildTestApp();
+    const rawBody = JSON.stringify({ sender: "Libyana", text: "تم تحويل 50 دينار من الرقم 0912345678 إلى رصيدك بنجاح" });
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const bodyOnlySignature = hmacSha256Hex(env.SMS_WEBHOOK_HMAC_SECRET, rawBody);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/webhooks/sms/libyana",
+      headers: { "content-type": "application/json", "x-signature": bodyOnlySignature, "x-timestamp": timestamp },
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("rejects a stale X-Timestamp even with an otherwise-correct signature", async () => {
+    app = await buildTestApp();
+    const rawBody = JSON.stringify({ sender: "Libyana", text: "تم تحويل 50 دينار من الرقم 0912345678 إلى رصيدك بنجاح" });
+    const staleTimestamp = String(Math.floor(Date.now() / 1000) - 3600);
+    const signature = hmacSha256Hex(env.SMS_WEBHOOK_HMAC_SECRET, rawBody + staleTimestamp);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/webhooks/sms/libyana",
+      headers: { "content-type": "application/json", "x-signature": signature, "x-timestamp": staleTimestamp },
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(401);
   });
 
   it("sets defensive security headers on API responses", async () => {

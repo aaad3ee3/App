@@ -27,9 +27,9 @@ interface TopupOption {
   created_at: string;
 }
 
-const STATUSES = ["", "unmatched", "ambiguous", "matched", "manually_resolved", "ignored_no_match", "ignored_untrusted_sender"];
+const STATUSES = ["all", "unmatched", "ambiguous", "matched", "manually_resolved", "ignored_no_match", "ignored_untrusted_sender"];
 const STATUS_LABELS: Record<string, string> = {
-  "": "الكل",
+  all: "الكل",
   unmatched: "غير مطابق",
   ambiguous: "غامض",
   matched: "مطابق",
@@ -53,11 +53,14 @@ export function SmsEventsPage() {
       return next;
     });
   };
+  // Always set the param explicitly — including "all" — rather than deleting it for "all".
+  // Deleting it made "all" indistinguishable from "no selection yet", which read back
+  // through the `?? "unmatched"` default below and silently re-filtered to "unmatched"
+  // every time someone picked "الكل".
   const setMatchStatus = (value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value) next.set("match_status", value);
-      else next.delete("match_status");
+      next.set("match_status", value);
       next.set("page", "1");
       return next;
     });
@@ -71,7 +74,7 @@ export function SmsEventsPage() {
     let cancelled = false;
     setLoading(true);
     const qs = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) });
-    if (matchStatus) qs.set("match_status", matchStatus);
+    if (matchStatus && matchStatus !== "all") qs.set("match_status", matchStatus);
     api
       .get<{ items: SmsEventRow[]; total: number }>(`/admin/sms-events?${qs}`)
       .then((res) => {
