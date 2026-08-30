@@ -38,10 +38,9 @@ class ProductGridTile extends StatelessWidget {
     final image = resolvedImage == null
         ? _placeholder()
         : isBrandIconUrl(resolvedImage)
-            // Same washed-out/invisible problem as the category grid: a brand's flat glyph
-            // (several are literally black) needs a fixed-contrast badge, not a cover-fit
-            // smear over this card's own background.
-            ? Container(color: AppColors.darkSurfaceHigh.withValues(alpha: 0.4), child: BrandIconBadge(resolvedImage, size: 56, padding: 12))
+            // Same fix as the category grid: BrandIconBadge now paints its own full-bleed
+            // brand-color background, so nothing else needs to fill this slot first.
+            ? BrandIconBadge(resolvedImage)
             : SmartNetworkImage(resolvedImage, errorBuilder: (_, _, _) => _placeholder());
 
     return TapScale(

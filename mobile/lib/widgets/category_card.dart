@@ -50,11 +50,10 @@ class CategoryCard extends StatelessWidget {
                   child: category.image == null
                       ? _fallbackIcon()
                       : isBrandIconUrl(category.image!)
-                          // A brand's flat single-color glyph (several are literally black)
-                          // reads as washed-out or vanishes outright when stretched
-                          // full-bleed over this gradient the way a real photo is — a
-                          // fixed near-white badge guarantees contrast regardless of theme
-                          // or brand color.
+                          // BrandIconBadge paints its own full-bleed brand-color background
+                          // (the tint behind it exists only for the real-photo branch below),
+                          // giving the tile the same bold color-block look a reference
+                          // competitor app uses for these exact platforms.
                           ? BrandIconBadge(category.image!)
                           : SmartNetworkImage(
                               category.image!,

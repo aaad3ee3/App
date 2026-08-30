@@ -39,7 +39,7 @@ class ProductTile extends StatelessWidget {
     final image = product.image == null
         ? _placeholder(context)
         : isBrandIconUrl(product.image!)
-            ? Container(color: AppColors.darkSurfaceHigh.withValues(alpha: 0.4), child: BrandIconBadge(product.image!, size: 44, padding: 9))
+            ? BrandIconBadge(product.image!)
             : SmartNetworkImage(product.image!, errorBuilder: (_, _, _) => _placeholder(context));
 
     return TapScale(

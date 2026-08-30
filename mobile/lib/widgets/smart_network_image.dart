@@ -12,33 +12,84 @@ bool isBrandIconUrl(String url) {
   return uri.path.toLowerCase().endsWith('.svg') || uri.host == 'cdn.simpleicons.org';
 }
 
-/// A brand's SVG logo centered on a fixed near-white disc — guarantees contrast (several
-/// brands' Simple Icons color is literally black, invisible against a dark card) and reads
-/// as a proper app-icon badge instead of a flat glyph smeared across a gradient tile.
+/// The real, confirmed brand color the backend already resolved for this icon — see
+/// BRAND_HINTS in catalog/brand-icons.ts and PLATFORMS in catalog/plus-categorization.ts,
+/// both of which only ever use a color looked up against the brand's own published palette,
+/// never guessed. It's baked into the URL itself
+/// (`cdn.simpleicons.org/<slug>/<hex>`), so this just parses it back out instead of the
+/// backend having to send it as a separate field.
+({String slug, Color color})? _parseBrandIconUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.pathSegments.length < 2) return null;
+  final hex = uri.pathSegments[1];
+  if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex)) return null;
+  return (slug: uri.pathSegments[0], color: Color(int.parse('FF$hex', radix: 16)));
+}
+
+/// Libya Play's own gift-card/subscription tiles (PlayStation, Xbox, Razer Gold, iTunes,
+/// OSN+, ...) are a bold color block in the platform's real brand color with its logo large
+/// on top, filling the whole tile — not a small icon floating in a lot of empty space.
+/// Simple Icons is the only source we have for these (Libya Play's own API only ships real
+/// photos for a handful of categories — see catalog-sync.service.ts) and only gives a flat
+/// vector glyph, but the backend already resolves a real brand color for every one of them;
+/// this reconstructs that same bold-tile treatment from it — a full-bleed gradient in the
+/// brand's own color with the logo re-requested in plain white or black (whichever contrasts)
+/// and sized to actually read from a shelf, replacing the small "logo on a white circle"
+/// badge this used to be, which is what looked cramped and washed-out next to a reference
+/// app's much bigger, more colorful cards.
 class BrandIconBadge extends StatelessWidget {
-  const BrandIconBadge(this.url, {super.key, this.size = 64, this.padding = 14});
+  const BrandIconBadge(this.url, {super.key});
 
   final String url;
-  final double size;
-  final double padding;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: size,
-        height: size,
-        padding: EdgeInsets.all(padding),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 8, offset: const Offset(0, 3))],
+    final brand = _parseBrandIconUrl(url);
+    if (brand == null) {
+      // Unrecognized URL shape — fall back to the original safe, small-badge treatment
+      // rather than guessing at a background color that isn't actually in the URL.
+      return Center(
+        child: Container(
+          width: 64,
+          height: 64,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 8, offset: const Offset(0, 3))],
+          ),
+          child: SvgPicture.network(
+            url,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => const SizedBox.shrink(),
+            errorBuilder: (_, _, _) => const Icon(Icons.bolt_rounded, color: Colors.black26),
+          ),
         ),
-        child: SvgPicture.network(
-          url,
-          fit: BoxFit.contain,
-          placeholderBuilder: (_) => const SizedBox.shrink(),
-          errorBuilder: (_, _, _) => const Icon(Icons.bolt_rounded, color: Colors.black26),
+      );
+    }
+
+    final isDark = brand.color.computeLuminance() < 0.45;
+    final iconUrl = 'https://cdn.simpleicons.org/${brand.slug}/${isDark ? 'ffffff' : '000000'}';
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [brand.color, Color.lerp(brand.color, Colors.black, 0.4)!],
+        ),
+      ),
+      child: Center(
+        child: FractionallySizedBox(
+          widthFactor: 0.45,
+          heightFactor: 0.45,
+          child: SvgPicture.network(
+            iconUrl,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => const SizedBox.shrink(),
+            errorBuilder: (_, _, _) =>
+                Icon(Icons.bolt_rounded, color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7)),
+          ),
         ),
       ),
     );

@@ -225,7 +225,7 @@ class _GiftcardPurchaseScreenState extends State<GiftcardPurchaseScreen> {
   Widget _heroImage() {
     final url = widget.product.image!;
     final image = isBrandIconUrl(url)
-        ? Container(color: AppColors.border, child: BrandIconBadge(url, size: 88, padding: 18))
+        ? BrandIconBadge(url)
         : SmartNetworkImage(url, errorBuilder: (_, _, _) => Container(color: AppColors.border));
     return widget.heroTag != null ? Hero(tag: widget.heroTag!, child: image) : image;
   }
