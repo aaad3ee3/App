@@ -27,11 +27,22 @@ import 'smm_purchase_screen.dart';
 import 'social_topup_purchase_screen.dart';
 import '../topup/topup_screen.dart';
 
+/// Lets a widget outside [StoreScreen] (home_shell's AppBar search icon) trigger its
+/// search field without exposing the private State class itself — home_shell owns one of
+/// these, passes it to the Home Dashboard tab's StoreScreen, and calls [open] instead of
+/// keeping its own second search box that duplicated this screen's.
+class StoreSearchController {
+  VoidCallback? _openSearch;
+
+  void open() => _openSearch?.call();
+}
+
 class StoreScreen extends StatefulWidget {
   const StoreScreen({
     super.key,
     this.kinds = const ['giftcard', 'smm', 'social_topup'],
     this.initialKind = 'giftcard',
+    this.searchController,
   });
 
   /// Which store kinds this instance switches between — a single-entry list hides the
@@ -39,6 +50,12 @@ class StoreScreen extends StatefulWidget {
   /// home_shell.dart) rather than a segment buried inside المتجر.
   final List<String> kinds;
   final String initialKind;
+
+  /// Optional external opener for this screen's own search field — see
+  /// [StoreSearchController]. Only the Home Dashboard tab (kinds.length > 1) wires one up;
+  /// other tabs (e.g. الرشق) keep their own always-visible search icon since nothing else
+  /// offers one for them.
+  final StoreSearchController? searchController;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -88,6 +105,7 @@ class _StoreScreenState extends State<StoreScreen> {
   void initState() {
     super.initState();
     _catalogService = CatalogService(context.read<AuthStore>().api);
+    widget.searchController?._openSearch = _openSearch;
     _load();
     _loadWalletBalance();
   }
@@ -115,6 +133,9 @@ class _StoreScreenState extends State<StoreScreen> {
 
   @override
   void dispose() {
+    if (widget.searchController?._openSearch == _openSearch) {
+      widget.searchController?._openSearch = null;
+    }
     _debounceTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -235,41 +256,46 @@ class _StoreScreenState extends State<StoreScreen> {
       children: [
         Column(
           children: [
-            // Collapsed to a small icon by default — a full-width bar left open with
-            // nothing typed in it is dead space above the grid on every visit. Since the
-            // app is RTL, the icon being the last child in this Row is what puts it on the
-            // physical left edge, not a directional property on the Row itself.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  if (_searchOpen)
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocusNode,
-                        onChanged: _onQueryChanged,
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration(
-                          isDense: true,
-                          hintText: 'ابحث عن بطاقة أو خدمة…',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            // Collapsed to nothing by default on the Home Dashboard tab — its search is
+            // opened from the AppBar's own search icon (see home_shell.dart's
+            // StoreSearchController) instead of duplicating a second search box here, which
+            // used to sit as dead space above the hero strip on every visit. Tabs with no
+            // external opener (e.g. الرشق) keep their own always-visible toggle icon, since
+            // nothing else offers one for them. Since the app is RTL, the icon being the
+            // last child in this Row is what puts it on the physical left edge, not a
+            // directional property on the Row itself.
+            if (_searchOpen || widget.searchController == null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  children: [
+                    if (_searchOpen)
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onChanged: _onQueryChanged,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'ابحث عن بطاقة أو خدمة…',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: _searchOpen ? 'إغلاق البحث' : 'بحث',
-                    iconSize: 18,
-                    visualDensity: VisualDensity.compact,
-                    onPressed: _searchOpen ? _closeSearch : _openSearch,
-                    icon: Icon(_searchOpen ? Icons.close_rounded : Icons.search_rounded),
-                  ),
-                ],
+                      )
+                    else
+                      const Spacer(),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: _searchOpen ? 'إغلاق البحث' : 'بحث',
+                      iconSize: 18,
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _searchOpen ? _closeSearch : _openSearch,
+                      icon: Icon(_searchOpen ? Icons.close_rounded : Icons.search_rounded),
+                    ),
+                  ],
+                ),
               ),
-            ),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),

@@ -34,11 +34,16 @@ class _HomeShellState extends State<HomeShell> {
   // it was a segment buried inside the store screen, easy to miss entirely.
   static const _titles = ['المتجر', 'الرشق', 'طلباتي', 'المحفظة', 'حسابي'];
 
+  // Lets the AppBar's own search icon open the dashboard tab's search field directly
+  // instead of that tab keeping a second, always-visible search icon of its own right
+  // under the AppBar — see StoreSearchController in store_screen.dart.
+  final _storeSearchController = StoreSearchController();
+
   // The store is the one tab a visitor gets in full — everything else is about *their*
   // money and *their* orders, which needs an account to even mean anything.
-  static const _pages = [
-    StoreScreen(kinds: ['giftcard', 'social_topup']),
-    StoreScreen(kinds: ['smm'], initialKind: 'smm'),
+  late final _pages = [
+    StoreScreen(kinds: const ['giftcard', 'social_topup'], searchController: _storeSearchController),
+    const StoreScreen(kinds: ['smm'], initialKind: 'smm'),
     RequiresAccount(
       gate: SignInGate(
         icon: Icons.receipt_long_rounded,
@@ -139,7 +144,10 @@ class _HomeShellState extends State<HomeShell> {
               tooltip: 'بحث',
               iconSize: 18,
               visualDensity: VisualDensity.compact,
-              onPressed: () => setState(() => _index = 0),
+              onPressed: () {
+                setState(() => _index = 0);
+                _storeSearchController.open();
+              },
               icon: const Icon(Icons.search_rounded),
             ),
             const SizedBox(width: 8),
