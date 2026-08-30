@@ -43,78 +43,133 @@ class ProductGridTile extends StatelessWidget {
             ? BrandIconBadge(resolvedImage)
             : SmartNetworkImage(resolvedImage, errorBuilder: (_, _, _) => _placeholder());
 
-    return TapScale(
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                          child: heroTag != null ? Hero(tag: heroTag!, child: image) : image,
-                        ),
-                      ),
-                      if (product.popular)
-                        const Positioned(top: 6, right: 6, child: _CornerBadge()),
-                      if (isFavorite != null)
-                        Positioned(
-                          top: 2,
-                          left: 2,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () => onToggleFavorite?.call(!isFavorite!),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
-                              child: Icon(
-                                isFavorite! ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                size: 16,
-                                color: isFavorite! ? AppColors.danger : Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        product.pricePer1000
-                            ? '${product.formattedPrice} ${product.currency}/1000'
-                            : '${product.formattedPrice} ${product.currency}',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: AppColors.gold,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.14), shape: BoxShape.circle),
-                      child: const Icon(Icons.add_rounded, size: 18, color: AppColors.gold),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Same true-3D treatment as the category cards: a perspective tilt, a physical
+    // extruded thickness layer, and an isolated drop shadow — per direct feedback
+    // referencing a fully-specified "true 3D extruded product card" implementation.
+    // The card's own content below is unchanged.
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()
+        ..setEntry(3, 2, 0.0012)
+        ..rotateX(0.05)
+        ..rotateY(-0.025),
+      child: TapScale(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: 12,
+              left: 6,
+              right: 6,
+              bottom: -8,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.28),
+                      blurRadius: 16,
+                      offset: const Offset(3, 10),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              top: 3,
+              left: 3,
+              right: -3,
+              bottom: -3,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF05070C) : const Color(0xFF1B2333),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border(top: BorderSide(color: Colors.white.withValues(alpha: isDark ? 0.55 : 0.75), width: 1.5)),
+              ),
+              child: Card(
+                elevation: 0,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                  child: heroTag != null ? Hero(tag: heroTag!, child: image) : image,
+                                ),
+                              ),
+                              if (product.popular)
+                                const Positioned(top: 6, right: 6, child: _CornerBadge()),
+                              if (isFavorite != null)
+                                Positioned(
+                                  top: 2,
+                                  left: 2,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () => onToggleFavorite?.call(!isFavorite!),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+                                      child: Icon(
+                                        isFavorite! ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                        size: 16,
+                                        color: isFavorite! ? AppColors.danger : Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                product.pricePer1000
+                                    ? '${product.formattedPrice} ${product.currency}/1000'
+                                    : '${product.formattedPrice} ${product.currency}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.14), shape: BoxShape.circle),
+                              child: const Icon(Icons.add_rounded, size: 18, color: AppColors.gold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
