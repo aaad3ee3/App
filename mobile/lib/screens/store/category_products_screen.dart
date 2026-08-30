@@ -9,6 +9,7 @@ import '../../services/catalog_service.dart';
 import '../../services/favorites_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/arabic_text.dart';
+import '../../utils/smm_service_types.dart';
 import '../../widgets/product_grid_tile.dart';
 import '../../widgets/shimmer_box.dart';
 import '../../widgets/smart_network_image.dart';
@@ -213,6 +214,69 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       );
     }
 
+    // الرشق (SMM) categories are one platform with dozens of unrelated service types
+    // (followers, views, likes, ...) all encoded only in the name — a flat list sorted by
+    // price alone mixes them together and reads as random. Every other kind (gift cards,
+    // live-app top-ups) is already a coherent, single-purpose list, so it keeps the plain
+    // grid. Grouping is skipped when a platform only has one real type in stock (e.g. a
+    // brand-new or thin category) — a single section header with nothing to contrast
+    // against would just be clutter.
+    if (widget.category.isSmm) {
+      final grouped = _groupByServiceType(products);
+      if (grouped.values.where((items) => items.isNotEmpty).length > 1) {
+        return _buildGroupedList(grouped);
+      }
+    }
+
+    return _buildFlatGrid(products);
+  }
+
+  Map<SmmServiceKind, List<StoreProduct>> _groupByServiceType(List<StoreProduct> products) {
+    final grouped = <SmmServiceKind, List<StoreProduct>>{for (final type in kSmmServiceTypes) type.kind: []};
+    for (final product in products) {
+      grouped[classifySmmServiceKind(product.name)]!.add(product);
+    }
+    return grouped;
+  }
+
+  Widget _buildGroupedList(Map<SmmServiceKind, List<StoreProduct>> grouped) {
+    final sections = [
+      for (final type in kSmmServiceTypes)
+        if (grouped[type.kind]!.isNotEmpty) MapEntry(type, grouped[type.kind]!),
+    ];
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: CustomScrollView(
+        slivers: [
+          for (final entry in sections) ...[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              sliver: SliverToBoxAdapter(child: _ServiceTypeHeader(type: entry.key, count: entry.value.length)),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.68,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _productTile(entry.value[index]),
+                  childCount: entry.value.length,
+                ),
+              ),
+            ),
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlatGrid(List<StoreProduct> products) {
     return RefreshIndicator(
       onRefresh: _load,
       child: AnimationLimiter(
@@ -235,22 +299,52 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
             child: SlideAnimation(
               verticalOffset: 30,
               curve: Curves.easeOutCubic,
-              child: FadeInAnimation(
-                child: ProductGridTile(
-                  product: products[index],
-                  onTap: () => _openProduct(products[index]),
-                  heroTag: 'product-image-${products[index].id}',
-                  fallbackImage: widget.category.image,
-                  isFavorite: context.watch<AuthStore>().isGuest ? null : _favoriteIds.contains(products[index].id),
-                  onToggleFavorite: context.watch<AuthStore>().isGuest
-                      ? null
-                      : (value) => _toggleFavorite(products[index], value),
-                ),
-              ),
+              child: FadeInAnimation(child: _productTile(products[index])),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _productTile(StoreProduct product) {
+    final isGuest = context.watch<AuthStore>().isGuest;
+    return ProductGridTile(
+      product: product,
+      onTap: () => _openProduct(product),
+      heroTag: 'product-image-${product.id}',
+      fallbackImage: widget.category.image,
+      isFavorite: isGuest ? null : _favoriteIds.contains(product.id),
+      onToggleFavorite: isGuest ? null : (value) => _toggleFavorite(product, value),
+    );
+  }
+}
+
+/// A grouped section's title within a الرشق (SMM) category screen — just a label and
+/// count, not a tappable "view all": this is already the full list for that service type,
+/// there is nowhere further to go.
+class _ServiceTypeHeader extends StatelessWidget {
+  const _ServiceTypeHeader({required this.type, required this.count});
+
+  final SmmServiceType type;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.14), shape: BoxShape.circle),
+          child: Icon(type.icon, size: 17, color: AppColors.gold),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(type.label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        ),
+        Text('$count', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ],
     );
   }
 }

@@ -27,4 +27,5 @@ class StoreCategory {
 
   bool get isGiftcard => kind == 'giftcard';
   bool get isSocialTopup => kind == 'social_topup';
+  bool get isSmm => kind == 'smm';
 }
