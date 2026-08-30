@@ -1,0 +1,8 @@
+# Public VPS site. certbot rewrites this to add the :443 server block and the redirect.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __DOMAIN__;
+
+    include /etc/nginx/snippets/sayeh-locations.conf;
+}

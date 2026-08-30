@@ -1,0 +1,60 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/app-plan-4fv8ik
+    paths:
+      - ".github/workflows/build-apk.yml"
+      - "mobile/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: mobile
+        # Without --dart-define, ApiConfig.baseUrl falls back to localhost:3000 (see
+        # lib/config/api_config.dart), which on a real phone is unreachable and surfaces as
+        # "تعذر الاتصال بالخادم" no matter how good the device's actual internet connection is.
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://sayeh-api.onrender.com
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sayeh-app
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      # Also publish the APK to a dedicated branch (force-pushed, single commit) so it can
+      # be fetched over plain git instead of the Actions artifact API — some networks can
+      # reach github.com but not the artifact storage CDN it redirects downloads to.
+      - name: Publish APK to apk-latest branch
+        run: |
+          mkdir /tmp/apk-branch
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk /tmp/apk-branch/app-release.apk
+          cd /tmp/apk-branch
+          git init -q -b apk-latest
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add app-release.apk
+          git commit -q -m "APK build from ${{ github.sha }}"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin apk-latest

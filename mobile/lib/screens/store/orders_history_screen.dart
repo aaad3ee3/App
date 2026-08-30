@@ -1,0 +1,329 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:provider/provider.dart';
+import '../../models/store_order.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_store.dart';
+import '../../services/app_config.dart';
+import '../../services/catalog_service.dart';
+import '../../services/orders_service.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/money.dart';
+import '../../utils/refresh_controller.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/shimmer_box.dart';
+import 'giftcard_purchase_screen.dart';
+import 'smm_purchase_screen.dart';
+import 'social_topup_purchase_screen.dart';
+
+IconData _orderKindIcon(String kind) => switch (kind) {
+      'giftcard' => Icons.card_giftcard_rounded,
+      'social_topup' => Icons.live_tv_rounded,
+      _ => Icons.trending_up_rounded,
+    };
+
+class OrdersHistoryScreen extends StatefulWidget {
+  const OrdersHistoryScreen({super.key, this.embedded = false, this.refreshController});
+
+  /// True when shown as a tab inside HomeShell, which already supplies the Scaffold and
+  /// the app bar. Pushed as its own route (from the profile screen) it needs both, hence
+  /// the flag rather than two near-identical widgets.
+  final bool embedded;
+
+  /// See [RefreshController] — lets home_shell reload this tab's list when it's
+  /// reselected, since HomeShell keeps it alive in an IndexedStack instead of rebuilding it
+  /// (so a purchase made from a different tab would otherwise never show up here without
+  /// this — the order looks like it silently vanished even though it went through).
+  final RefreshController? refreshController;
+
+  @override
+  State<OrdersHistoryScreen> createState() => _OrdersHistoryScreenState();
+}
+
+class _OrdersHistoryScreenState extends State<OrdersHistoryScreen> {
+  late final OrdersService _ordersService;
+  List<StoreOrder> _orders = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _ordersService = OrdersService(context.read<AuthStore>().api);
+    widget.refreshController?.attach(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refreshController?.detach(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final orders = await _ordersService.listOrders();
+      if (!mounted) return;
+      setState(() {
+        _orders = orders;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _loading
+        ? const ListRowSkeleton()
+        : _error != null
+            ? EmptyState(
+                icon: Icons.wifi_off_rounded,
+                title: _error!,
+                action: OutlinedButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+              )
+            : _orders.isEmpty
+                ? const EmptyState(
+                    icon: Icons.receipt_long_rounded,
+                    title: 'لا توجد طلبات بعد',
+                    subtitle: 'أول ما تشتري بطاقة أو تطلب خدمة، راح تلقاها هنا مع الكود وحالة الطلب.',
+                    lottieAsset: 'assets/lottie/empty_box.json',
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: AnimationLimiter(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _orders.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 380),
+                          child: SlideAnimation(
+                            verticalOffset: 30,
+                            curve: Curves.easeOutCubic,
+                            child: FadeInAnimation(
+                              child: _OrderTile(order: _orders[index]),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+
+    if (widget.embedded) return body;
+    return Scaffold(appBar: AppBar(title: const Text('طلباتي')), body: body);
+  }
+}
+
+
+class _StatusInfo {
+  final String label;
+  final Color color;
+  const _StatusInfo(this.label, this.color);
+}
+
+_StatusInfo _statusInfo(String status) {
+  switch (status) {
+    case 'completed':
+      return const _StatusInfo('مكتمل', AppColors.success);
+    case 'processing':
+    case 'pending':
+      return const _StatusInfo('قيد التنفيذ', AppColors.warning);
+    case 'failed':
+      return const _StatusInfo('فشل واسترجع المبلغ', AppColors.danger);
+    case 'ambiguous_error':
+      return const _StatusInfo('قيد المراجعة', AppColors.warning);
+    case 'refunded':
+      return const _StatusInfo('تم الاسترجاع', AppColors.info);
+    default:
+      return _StatusInfo(status, AppColors.textSecondary);
+  }
+}
+
+/// "Order again" on a past order — reuses the product id it already carries, skipping the
+/// search-and-browse round trip for something a customer buys on a recurring basis (a
+/// monthly Netflix top-up, the same follower package). Fetches the product fresh rather
+/// than trusting the order's old price/name, since either can have changed since.
+Future<void> _reorder(BuildContext context, StoreOrder order) async {
+  final messenger = ScaffoldMessenger.of(context);
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  );
+  try {
+    final catalogService = CatalogService(context.read<AuthStore>().api);
+    final product = await catalogService.getProduct(order.productId);
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // close the loading dialog
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => switch (order.kind) {
+          'giftcard' => GiftcardPurchaseScreen(product: product),
+          'social_topup' => SocialTopupPurchaseScreen(product: product),
+          _ => SmmPurchaseScreen(product: product),
+        },
+      ),
+    );
+  } on ApiException catch (e) {
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  }
+}
+
+class _OrderTile extends StatelessWidget {
+  const _OrderTile({required this.order});
+
+  final StoreOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _statusInfo(order.status);
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => showDialog(
+          context: context,
+          builder: (_) => _OrderDetailDialog(order: order),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: status.color.withValues(alpha: 0.14),
+                child: Icon(_orderKindIcon(order.kind), color: status.color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(DateFormat('yyyy/MM/dd — HH:mm').format(order.createdAt.toLocal())),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: status.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                      child: Text(status.label, style: TextStyle(color: status.color, fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${formatLydString(order.totalPrice)} LYD', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (order.status == 'completed')
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => _reorder(context, order),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.replay_rounded, size: 13, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 3),
+                            Text(
+                              'اطلب مرة ثانية',
+                              style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderDetailDialog extends StatelessWidget {
+  const _OrderDetailDialog({required this.order});
+
+  final StoreOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _statusInfo(order.status);
+    final whatsappUrl = context.watch<AppConfigStore>().config.whatsappUrl;
+    return AlertDialog(
+      title: const Text('تفاصيل الطلب'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row('الحالة', status.label),
+          _row('الكمية', '${order.quantity}'),
+          _row('الإجمالي', '${formatLydString(order.totalPrice)} LYD'),
+          if (order.targetLink != null) _row('الرابط', order.targetLink!),
+          if (order.cardCode != null) ...[
+            const SizedBox(height: 8),
+            const Text('كود البطاقة', style: TextStyle(color: AppColors.textSecondary)),
+            SelectableText(
+              order.cardCode!,
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+          if (order.errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(order.errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+          ],
+          if (order.status == 'ambiguous_error') ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warningBg,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+              child: const Text(
+                'مبلغ الطلب محجوز ولم يُخصم نهائياً. نتأكد من حالته مع المورّد، وإما ننفّذه أو نرجّع المبلغ كاملاً لمحفظتك.',
+                style: TextStyle(fontSize: 13, color: AppColors.warning),
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        // An order held for review is precisely when a customer needs to reach a human:
+        // their money is committed and the app cannot yet tell them the outcome.
+        if (order.status == 'ambiguous_error' && whatsappUrl != null)
+          TextButton.icon(
+            onPressed: () => launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication),
+            icon: const Icon(Icons.support_agent_rounded, size: 18),
+            label: const Text('تواصل مع الدعم'),
+          ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إغلاق')),
+      ],
+    );
+  }
+
+  Widget _row(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(width: 12),
+            Flexible(child: Text(value, textAlign: TextAlign.end)),
+          ],
+        ),
+      );
+}

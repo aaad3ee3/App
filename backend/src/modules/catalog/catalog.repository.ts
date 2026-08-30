@@ -1,0 +1,310 @@
+import type { Knex } from "knex";
+import { db } from "../../db/knex";
+import { sanitizeImageUrl, sanitizeName, sanitizeText } from "../../lib/sanitize";
+import { escapeLikePattern } from "../../lib/search";
+import type { CategoryRow, ProductKind, ProductRow, Supplier } from "../../db/types";
+
+/**
+ * The indexed expressions from the catalog-search migration. Written exactly as the index
+ * defines them — any difference, even whitespace inside the call, and Postgres stops
+ * recognising the expression as indexable and falls back to a sequential scan.
+ */
+const NORMALIZED = "sayeh_search_normalize(p.name)";
+const NORMALIZED_CATEGORY = "sayeh_search_normalize(c.name)";
+
+export interface UpsertCategoryInput {
+  kind: ProductKind;
+  supplier: Supplier;
+  supplierCategoryRef: string | null;
+  name: string;
+  image: string | null;
+}
+
+/**
+ * Dedupe key is (supplier, supplier_category_ref) for Libya Play, (supplier, name) for
+ * Plus's synthetic platform categories (supplier_category_ref is null there) — see the
+ * expression unique index in the categories migration. Deliberately does NOT touch
+ * `enabled`/`sort_order` on conflict so admin overrides survive repeated syncs.
+ *
+ * `image` is COALESCEd rather than overwritten outright: most suppliers only provide an
+ * image for a handful of categories, so an admin filling the rest in by hand (see
+ * updateCategoryImage) needs that to stick across every future sync, not get wiped the
+ * next time the button is pressed. A category with no image yet — admin or supplier —
+ * still picks up the supplier's image the moment one becomes available.
+ *
+ * Name and image are sanitized here rather than at the call site: this function and
+ * upsertProduct are the only ways supplier data enters the catalog tables, so cleaning
+ * them here means no future sync path can accidentally skip it.
+ */
+export async function upsertCategory(input: UpsertCategoryInput): Promise<string> {
+  const result = await db.raw<{ rows: { id: string }[] }>(
+    `INSERT INTO categories (kind, supplier, supplier_category_ref, name, image)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (supplier, COALESCE(supplier_category_ref, name))
+     DO UPDATE SET name = EXCLUDED.name, image = COALESCE(categories.image, EXCLUDED.image), updated_at = now()
+     RETURNING id`,
+    [
+      input.kind,
+      input.supplier,
+      input.supplierCategoryRef,
+      sanitizeName(input.name, "تصنيف", 200),
+      sanitizeImageUrl(input.image),
+    ]
+  );
+  return result.rows[0]!.id;
+}
+
+export interface UpsertProductInput {
+  categoryId: string;
+  kind: ProductKind;
+  supplier: Supplier;
+  supplierProductRef: string;
+  supplierSubCategoryRef: string | null;
+  name: string;
+  description: string | null;
+  image: string | null;
+  costPrice: number;
+  sellPrice: number;
+  currency: string;
+  pricePer1000: boolean;
+  minQuantity: number | null;
+  maxQuantity: number | null;
+  available: boolean;
+  /** social_topup only — see ProductRow.required_params. */
+  requiredParams?: string[] | null;
+}
+
+/**
+ * Dedupe key is (supplier, supplier_product_ref) — a plain unique constraint, unlike
+ * categories. NOTE: sell_price is always recomputed and overwritten on every sync (cost *
+ * markup) — a manual admin price override does NOT currently survive a re-sync. Revisit
+ * with a `sell_price_overridden` flag if that turns out to matter in practice.
+ */
+export async function upsertProduct(input: UpsertProductInput): Promise<string> {
+  const row = {
+    category_id: input.categoryId,
+    kind: input.kind,
+    supplier: input.supplier,
+    supplier_product_ref: input.supplierProductRef,
+    supplier_sub_category_ref: input.supplierSubCategoryRef,
+    // Sanitized here for the same reason as upsertCategory above — single choke point.
+    name: sanitizeName(input.name, input.supplierProductRef, 300),
+    description: sanitizeText(input.description, 1000),
+    image: sanitizeImageUrl(input.image),
+    // Number(...) here for the same reason name/image are sanitized here: this is the
+    // single choke point all supplier data passes through, and at least one supplier is
+    // confirmed to send price fields as numeric strings despite its documented type —
+    // .toFixed() throws on a string, so trusting the declared TS type isn't enough.
+    cost_price: Number(input.costPrice).toFixed(4),
+    sell_price: Number(input.sellPrice).toFixed(4),
+    currency: input.currency,
+    price_per_1000: input.pricePer1000,
+    min_quantity: input.minQuantity,
+    max_quantity: input.maxQuantity,
+    available: input.available,
+    // JSON.stringify'd here rather than handed to knex as a plain array: Postgres accepts
+    // JSON text for a jsonb column directly, but knex/pg would otherwise try to serialize a
+    // JS array as its own ARRAY literal syntax instead. Cast is needed only because
+    // ProductRow types the column as already-parsed (jsonb comes back parsed on read).
+    required_params: (input.requiredParams ? JSON.stringify(input.requiredParams) : null) as unknown as string[] | null,
+  };
+
+  const rows = await db<ProductRow>("products")
+    .insert(row)
+    .onConflict(["supplier", "supplier_product_ref"])
+    .merge({ ...row, updated_at: new Date() })
+    .returning("id");
+  return rows[0]!.id;
+}
+
+export interface CategoryWithProductCount extends CategoryRow {
+  /** Counts available products only — an empty category should read as empty, not as
+   *  however many hidden rows it happens to hold. */
+  product_count: number;
+}
+
+export function listEnabledCategories(kind?: ProductKind): Promise<CategoryWithProductCount[]> {
+  const query = db<CategoryRow>("categories as c")
+    // Joined on availability rather than filtered in a WHERE: a WHERE clause would turn
+    // the LEFT JOIN into an inner one and drop every category that currently has nothing
+    // available, which is exactly the case the count exists to show.
+    .leftJoin("products as p", function () {
+      this.on("p.category_id", "=", "c.id").andOnVal("p.available", "=", true);
+    })
+    .where("c.enabled", true)
+    .groupBy("c.id")
+    .select("c.*")
+    // ::int because Postgres COUNT returns bigint, which node-postgres hands back as a
+    // string — the app would render "12" fine but compare it wrongly.
+    .select(db.raw("COUNT(p.id)::int as product_count"))
+    .orderBy("c.sort_order")
+    .orderBy("c.name");
+
+  if (kind) query.andWhere("c.kind", kind);
+  return query as unknown as Promise<CategoryWithProductCount[]>;
+}
+
+export function getCategoryById(id: string, trx: Knex | Knex.Transaction = db): Promise<CategoryRow | undefined> {
+  return trx<CategoryRow>("categories").where({ id }).first();
+}
+
+export interface ProductWithPopularity extends ProductRow {
+  /** Top 3 sellers (by completed order count) within their own category — surfaced to the
+   *  customer as a "most ordered" badge. False (not just absent) for a product with zero
+   *  completed orders, however few products the category has. */
+  popular: boolean;
+}
+
+/**
+ * Ranks products by completed-order count within their own category (a window function,
+ * partitioned per category) and flags the top 3 as `popular`. Computed on every read
+ * rather than cached — the catalog is small enough (a few hundred products at most) that
+ * this costs nothing worth caching for, and a cache would just be one more thing to
+ * invalidate correctly every time an order completes.
+ */
+export async function listAvailableProductsByCategory(categoryId: string): Promise<ProductWithPopularity[]> {
+  const result = await db.raw<{ rows: ProductWithPopularity[] }>(
+    `SELECT p.*, COALESCE(oc.rnk <= 3 AND oc.completed_count > 0, false) AS popular
+     FROM products p
+     LEFT JOIN (
+       SELECT o.product_id, pp.category_id, COUNT(*) AS completed_count,
+              RANK() OVER (PARTITION BY pp.category_id ORDER BY COUNT(*) DESC) AS rnk
+       FROM orders o
+       JOIN products pp ON pp.id = o.product_id
+       WHERE o.status = 'completed'
+       GROUP BY o.product_id, pp.category_id
+     ) oc ON oc.product_id = p.id
+     WHERE p.category_id = ? AND p.available = true
+     ORDER BY p.sell_price ASC`,
+    [categoryId]
+  );
+  return result.rows;
+}
+
+export function getProductById(id: string, trx: Knex | Knex.Transaction = db): Promise<ProductRow | undefined> {
+  return trx<ProductRow>("products").where({ id }).first();
+}
+
+export interface ProductSearchRow extends ProductRow {
+  category_name: string;
+  category_kind: ProductKind;
+}
+
+export interface SearchProductsInput {
+  /**
+   * One entry per word the customer typed, each holding that word and its aliases —
+   * already normalized and LIKE-escaped by tokenizeQuery. Groups are ANDed, alternatives
+   * within a group are ORed.
+   */
+  termGroups: string[][];
+  normalizedQuery: string;
+  kind?: ProductKind;
+  limit: number;
+}
+
+/**
+ * Full-catalog product search.
+ *
+ * Matches the category name as well as the product name, because that is how customers
+ * actually search: a product row is called "60 UC", and nothing but its category says
+ * "PUBG". Terms are ANDed (each one must appear somewhere) so that adding a word narrows
+ * the result set, which is what typing more is meant to do.
+ *
+ * Ordering puts a product whose own name starts with the query first, then products that
+ * merely contain it, then category-only matches — otherwise a cheap unrelated item wins
+ * on price alone and buries the thing the customer typed.
+ */
+export async function searchProducts(input: SearchProductsInput): Promise<ProductSearchRow[]> {
+  const query = db<ProductRow>("products as p")
+    .join("categories as c", "c.id", "p.category_id")
+    .where("p.available", true)
+    .andWhere("c.enabled", true)
+    .select("p.*", "c.name as category_name", "c.kind as category_kind");
+
+  if (input.kind) query.andWhere("p.kind", input.kind);
+
+  for (const group of input.termGroups) {
+    query.andWhere((builder) => {
+      for (const term of group) {
+        builder
+          .orWhereRaw(`${NORMALIZED} LIKE ? ESCAPE '\\'`, [`%${term}%`])
+          .orWhereRaw(`${NORMALIZED_CATEGORY} LIKE ? ESCAPE '\\'`, [`%${term}%`]);
+      }
+    });
+  }
+
+  const escapedQuery = escapeLikePattern(input.normalizedQuery);
+  return query
+    .orderByRaw(
+      `CASE
+         WHEN ${NORMALIZED} LIKE ? ESCAPE '\\' THEN 0
+         WHEN ${NORMALIZED} LIKE ? ESCAPE '\\' THEN 1
+         WHEN ${NORMALIZED_CATEGORY} LIKE ? ESCAPE '\\' THEN 2
+         ELSE 3
+       END, p.sell_price ASC, p.name ASC`,
+      [`${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`]
+    )
+    .limit(input.limit) as unknown as Promise<ProductSearchRow[]>;
+}
+
+export async function listAllCategoriesAdmin(): Promise<CategoryRow[]> {
+  return db<CategoryRow>("categories").orderBy([{ column: "kind" }, { column: "sort_order" }, { column: "name" }]);
+}
+
+export async function listAllProductsAdmin(categoryId?: string): Promise<ProductRow[]> {
+  const query = db<ProductRow>("products");
+  if (categoryId) query.where({ category_id: categoryId });
+  return query.orderBy("name");
+}
+
+/**
+ * Marks unavailable any currently-available product from this supplier+kind whose ref
+ * wasn't seen in the sync run that just finished — i.e. the supplier stopped listing it. A
+ * product is never deleted outright: past orders reference it by id, and `ON DELETE
+ * RESTRICT` on orders/wallet_transactions exists precisely so the ledger can't lose that
+ * link (the auth module's anonymize-don't-delete pattern applies the same reasoning to
+ * users). Unavailable just means it drops out of browsing and can no longer be bought —
+ * see createOrder's `available` check.
+ *
+ * Scoped by `kind` as well as `supplier`: Libya Play serves two independent product kinds
+ * (digt giftcards and social_topup live-app top-ups) under the one `libya_play` supplier,
+ * synced by two separate functions (syncLibyaPlay / syncLibyaPlaySocial) that each only see
+ * their own half of the catalog. Without the kind filter, syncing one would wrongly mark
+ * every product of the other stale on every run.
+ */
+export function markStaleProductsUnavailable(
+  supplier: Supplier,
+  kind: ProductKind,
+  seenSupplierProductRefs: string[]
+): Promise<number> {
+  return db("products")
+    .where({ supplier, kind, available: true })
+    .whereNotIn("supplier_product_ref", seenSupplierProductRefs)
+    .update({ available: false, updated_at: new Date() });
+}
+
+export function setCategoryEnabled(id: string, enabled: boolean): Promise<number> {
+  return db("categories").where({ id }).update({ enabled, updated_at: new Date() });
+}
+
+/**
+ * Manual admin override for a category's image — most categories arrive from a supplier
+ * with no image at all (Libya Play only sends real images for a handful; Plus's synthetic
+ * categories never have one), so this fills the gap by hand. Sanitized the same as a
+ * supplier-sourced image, and safe from being wiped by the next sync: see the COALESCE in
+ * upsertCategory above. An empty string clears it back to null, which lets a future sync
+ * fill it in from the supplier again.
+ */
+export function updateCategoryImage(id: string, image: string | null): Promise<number> {
+  return db("categories").where({ id }).update({ image: sanitizeImageUrl(image), updated_at: new Date() });
+}
+
+export function updateProductOverride(
+  id: string,
+  fields: { sellPrice?: number; available?: boolean }
+): Promise<number> {
+  const update: Record<string, unknown> = { updated_at: new Date() };
+  if (fields.sellPrice !== undefined) update.sell_price = fields.sellPrice.toFixed(4);
+  if (fields.available !== undefined) update.available = fields.available;
+  return db("products").where({ id }).update(update);
+}
