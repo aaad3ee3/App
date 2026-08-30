@@ -6,7 +6,6 @@ import '../theme/app_theme.dart';
 import '../utils/home_sections.dart';
 import 'category_card.dart';
 import 'orbit_badge.dart';
-import 'sayeh_logo.dart';
 import 'smart_network_image.dart';
 
 class SpotlightItem {
@@ -15,22 +14,26 @@ class SpotlightItem {
   final StoreCategory category;
 }
 
-/// The Home Dashboard's top strip: the Sayeh mark at rest in the middle, with real top
-/// categories (one per section — the same data the old swipeable "تسوق الآن" cards used)
-/// orbiting it as small badges that float and tilt on an endless loop. Replaces that
-/// carousel per direct feedback that its cards read as generic/cheap; the continuous
-/// float-in-place — via flutter_animate's onPlay: (c) => c.repeat(reverse: true) — is the
-/// same idea as a reference "welcome" screen's layered floating badges, adapted to real
-/// catalog art instead of decoration.
+/// The Home Dashboard's top strip: real top categories (one per section — the same data
+/// the old swipeable "تسوق الآن" cards used) as large badges that float and tilt on an
+/// endless loop. Originally orbited a center Sayeh-mark circle; dropped per direct
+/// feedback that the cluster read as unreadable, clipped rectangles — three plain badges,
+/// sized up to actually be visible, replaced it.
 class FloatingHero extends StatelessWidget {
   const FloatingHero({super.key, required this.items});
 
   final List<SpotlightItem> items;
 
+  static const _badgeSize = 88.0;
+
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // A slight vertical stagger per badge (not a rigid aligned row) so the cluster still
+    // reads as loosely floating rather than a mechanical grid.
+    const topOffsets = [0.0, 14.0, 6.0];
 
     return Container(
       height: 176,
@@ -47,23 +50,14 @@ class FloatingHero extends StatelessWidget {
       child: Column(
         children: [
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.gold.withValues(alpha: 0.14),
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.28), blurRadius: 28, spreadRadius: 4)],
+                for (int i = 0; i < items.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(top: topOffsets[i % topOffsets.length]),
+                    child: _orbitFor(context, items[i], i),
                   ),
-                  child: const SayehLogo(size: 36),
-                ),
-                Positioned(top: 12, right: 38, child: _orbitFor(context, items[0], 0)),
-                if (items.length > 1) Positioned(bottom: 12, left: 34, child: _orbitFor(context, items[1], 1)),
-                if (items.length > 2) Positioned(top: 16, left: 14, child: _orbitFor(context, items[2], 2)),
               ],
             ),
           ),
@@ -85,6 +79,7 @@ class FloatingHero extends StatelessWidget {
 
   Widget _orbitFor(BuildContext context, SpotlightItem item, int seed) => OrbitBadge(
         seed: seed,
+        size: _badgeSize,
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: item.category)),
         ),
@@ -100,7 +95,7 @@ class _BadgeArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (category.image == null) {
-      return Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 22);
+      return Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 36);
     }
     if (isBrandIconUrl(category.image!)) {
       // No BrandIconBadge here — this badge's own white circle already does that job;
@@ -109,14 +104,14 @@ class _BadgeArt extends StatelessWidget {
         category.image!,
         fit: BoxFit.contain,
         placeholderBuilder: (_) => const SizedBox.shrink(),
-        errorBuilder: (_, _, _) => Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 22),
+        errorBuilder: (_, _, _) => Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 36),
       );
     }
     return ClipOval(
       child: SmartNetworkImage(
         category.image!,
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 22),
+        errorBuilder: (_, _, _) => Icon(kindIcon(category.kind), color: AppColors.navy.withValues(alpha: 0.6), size: 36),
       ),
     );
   }

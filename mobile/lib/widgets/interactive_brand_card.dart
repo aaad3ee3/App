@@ -4,15 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import '../theme/app_theme.dart';
-import '../utils/home_sections.dart';
-import 'orbit_badge.dart';
 import 'sayeh_logo.dart';
 
 /// A physically-interactive 3D hero card for the login screen — the Sayeh mark itself,
 /// not a fabricated bank card (direct feedback: a Visa-style mockup doesn't correspond to
-/// anything Sayeh actually sells). Orbiting it are the app's three real Home Dashboard
-/// sections (see utils/home_sections.dart) via the same [OrbitBadge] used there and on
-/// onboarding, so a first-time visitor sees the app's real shape before ever logging in.
+/// anything Sayeh actually sells). Orbiting section badges were tried and removed per
+/// direct feedback too — the plain card floating on its own read better on its own.
 ///
 /// The physics are unchanged from the reference this was built against (Revolut's own
 /// pre-auth card): a spring-driven entrance (real mass/stiffness/damping via
@@ -37,9 +34,8 @@ class _InteractiveBrandCardState extends State<InteractiveBrandCard> with Ticker
   static const _entranceSpring = SpringDescription(mass: 1, stiffness: 120, damping: 14);
   static const _resetSpring = SpringDescription(mass: 1, stiffness: 180, damping: 20);
 
-  // Headroom around the card for the fan cards' spread, the orbiting section badges, and
-  // the idle float's travel.
-  static const _padding = 46.0;
+  // Headroom around the card for the fan cards' spread and the idle float's travel.
+  static const _padding = 26.0;
 
   late final AnimationController _entrance;
   late final AnimationController _idle;
@@ -103,10 +99,8 @@ class _InteractiveBrandCardState extends State<InteractiveBrandCard> with Ticker
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The fanned backdrop and the orbiting section badges stay fixed — only the
-          // main card responds to touch.
+          // The fanned backdrop stays fixed — only the main card responds to touch.
           ..._fanCards(),
-          for (int i = 0; i < kHomeSections.length; i++) _sectionBadge(i),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: _onPanStart,
@@ -161,26 +155,6 @@ class _InteractiveBrandCardState extends State<InteractiveBrandCard> with Ticker
         ],
       ),
     );
-  }
-
-  Widget _sectionBadge(int index) {
-    final section = kHomeSections[index];
-    final badge = OrbitBadge(
-      seed: index,
-      size: 46,
-      child: Icon(section.icon, color: section.gradient.last, size: 20),
-    );
-
-    // Pixel offsets (not fractional Alignment) so each badge sits precisely just past the
-    // card's own corner, inside the box's fixed padding headroom — one per corner.
-    switch (index % 3) {
-      case 0:
-        return Positioned(top: 6, right: 18, child: badge);
-      case 1:
-        return Positioned(bottom: 12, left: 14, child: badge);
-      default:
-        return Positioned(top: 34, left: 6, child: badge);
-    }
   }
 
   List<Widget> _fanCards() {

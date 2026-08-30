@@ -30,6 +30,10 @@ class _Slide {
   final List<_FloatIcon> floatIcons;
 }
 
+/// A small vertical stagger per badge so the row of three reads as loosely floating
+/// rather than a mechanical, perfectly-aligned grid.
+const _kBadgeTopOffsets = [0.0, 16.0, 6.0];
+
 /// Shown once, on the very first launch, before the customer is asked to sign up.
 ///
 /// The order is deliberate: the primary business (gift cards, game top-ups, funding the
@@ -64,8 +68,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: 'شدات ببجي، جواهر فري فاير، وشحن أشهر الألعاب — يوصلك الكود خلال دقائق.',
       floatIcons: [
         _FloatIcon.brand('pubg', 'F2A900'),
-        _FloatIcon.brand('callofduty', '000000'),
-        _FloatIcon.brand('genshinimpact', '1F8FCD'),
+        _FloatIcon.brand('fortnite', '000000'),
+        _FloatIcon.brand('roblox', '000000'),
       ],
     ),
     _Slide(
@@ -205,34 +209,20 @@ class _SlideView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // The slide's own icon at rest in the middle, with a few small brand/illustrative
-          // badges floating and tilting around it on an endless loop — the same Phantom-style
-          // "layered floating cards" composition as the store's own home hero, reused here
-          // so a customer's very first screens already carry the app's motion language.
+          // Three large brand/illustrative badges, floating and tilting on an endless
+          // loop — the same Phantom-style motion as the store's own home hero. No center
+          // icon anymore: a small icon-in-a-circle plus three tiny orbiting badges just
+          // read as a cluttered, half-clipped mess at this size — three plain, big badges
+          // are what's actually legible on a phone screen.
           SizedBox(
             height: 160,
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: AppColors.gold.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.22), blurRadius: 26, spreadRadius: 4)],
-                  ),
-                  child: Icon(slide.icon, size: 46, color: AppColors.gold),
-                ),
-                if (slide.floatIcons.isNotEmpty)
-                  Positioned(top: 2, right: 20, child: OrbitBadge(seed: 0, child: _FloatIconArt(spec: slide.floatIcons[0]))),
-                if (slide.floatIcons.length > 1)
-                  Positioned(bottom: 6, left: 16, child: OrbitBadge(seed: 1, child: _FloatIconArt(spec: slide.floatIcons[1]))),
-                if (slide.floatIcons.length > 2)
-                  Positioned(
-                    top: 28,
-                    left: 6,
-                    child: OrbitBadge(seed: 2, size: 44, child: _FloatIconArt(spec: slide.floatIcons[2])),
+                for (int i = 0; i < slide.floatIcons.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(top: _kBadgeTopOffsets[i % _kBadgeTopOffsets.length]),
+                    child: OrbitBadge(seed: i, size: 80, child: _FloatIconArt(spec: slide.floatIcons[i])),
                   ),
               ],
             ),
@@ -267,13 +257,13 @@ class _FloatIconArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (spec.icon != null) {
-      return Icon(spec.icon, color: AppColors.navy.withValues(alpha: 0.65), size: 22);
+      return Icon(spec.icon, color: AppColors.navy.withValues(alpha: 0.65), size: 38);
     }
     return SvgPicture.network(
       spec._url!,
       fit: BoxFit.contain,
       placeholderBuilder: (_) => const SizedBox.shrink(),
-      errorBuilder: (_, _, _) => Icon(Icons.bolt_rounded, color: AppColors.navy.withValues(alpha: 0.4), size: 20),
+      errorBuilder: (_, _, _) => Icon(Icons.bolt_rounded, color: AppColors.navy.withValues(alpha: 0.4), size: 34),
     );
   }
 }
